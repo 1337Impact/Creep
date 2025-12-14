@@ -71,6 +71,9 @@ const ExpandedSelectionPopup: React.FC<ExpandedSelectionPopupProps> = ({
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
+        // Stop propagation to prevent webpage keyboard shortcuts from interfering
+        e.stopPropagation();
+        
         // Delegate to dropdown first
         if (dropdownRef.current?.handleKeyDown(e)) {
             return;
@@ -157,6 +160,8 @@ const ExpandedSelectionPopup: React.FC<ExpandedSelectionPopupProps> = ({
                         value={inputValue}
                         onChange={handleInputChange}
                         onKeyDown={handleKeyDown}
+                        onKeyUp={(e) => e.stopPropagation()}
+                        onKeyPress={(e) => e.stopPropagation()}
                         placeholder="Ask, /fact-check, /translate..."
                         className={cn(
                             "w-full px-3 py-2 text-sm rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all",

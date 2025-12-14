@@ -1,8 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "Chrome AI Helper",
+  "name": "Creep",
   "version": "1.0",
   "description": "AI helper that sits in the corner of your screen",
+  "icons": {
+    "16": "icons/owl.svg",
+    "32": "icons/owl.svg",
+    "48": "icons/owl.svg",
+    "128": "icons/owl.svg"
+  },
   "permissions": [
     "activeTab",
     "tabs",

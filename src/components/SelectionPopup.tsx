@@ -137,6 +137,8 @@ const SelectionPopup: React.FC<SelectionPopupProps> = ({ globalSetSelectedText, 
 
   const handleClose = () => {
     setIsExpanded(false);
+    setPosition(null);
+    setCurrentSelection('');
   };
 
   if (!position) return null;
