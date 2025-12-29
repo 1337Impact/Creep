@@ -20,7 +20,6 @@ import {
   Search,
 } from "lucide-react";
 import MarkdownPreview from "@uiw/react-markdown-preview";
-import { useWebsiteDarkMode } from "../hooks/useWebsiteDarkMode";
 // @ts-ignore - re-resizable types will be available after npm install
 import { Resizable } from "re-resizable";
 
@@ -143,7 +142,6 @@ const ChatInterface: React.FC<{
   const [useGoogleSearch, setUseGoogleSearch] = useState(false);
   const [selectedText, setSelectedText] = useState("");
   const [selectedModel, setSelectedModel] = useState(MODELS[1]); // Default to Flash
-  const darkMode = useWebsiteDarkMode();
 
   // Button position state
   const [buttonPosition, setButtonPosition] = useState<{
@@ -808,15 +806,13 @@ const ChatInterface: React.FC<{
     >
       <div
         className={cn(
-          "w-full h-full bg-white border shadow-2xl rounded-xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 duration-200 transition-colors",
-          darkMode && "bg-gray-900 border-gray-900"
+          "w-full h-full bg-gray-900 border-gray-900 border shadow-2xl rounded-xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 duration-200 transition-colors"
         )}
       >
         {/* Header */}
         <div
           className={cn(
-            "bg-black text-white p-4 flex justify-between items-center",
-            darkMode && "bg-gray-950 border-b border-gray-800"
+            "bg-gray-950 border-b border-gray-800 text-white p-4 flex justify-between items-center"
           )}
         >
           <div className="flex items-center gap-2">
@@ -835,8 +831,7 @@ const ChatInterface: React.FC<{
         {/* Tabs */}
         <div
           className={cn(
-            "bg-gray-100 flex items-center px-2 py-2 gap-1 overflow-x-auto border-b border-gray-200",
-            darkMode && "bg-gray-800 border-gray-700"
+            "bg-gray-800 border-gray-700 flex items-center px-2 py-2 gap-1 overflow-x-auto border-b"
           )}
         >
           {tabs.map((tab) => (
@@ -846,12 +841,8 @@ const ChatInterface: React.FC<{
               className={cn(
                 "flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors min-w-[80px] justify-between group cursor-pointer",
                 activeTabId === tab.id
-                  ? darkMode
-                    ? "bg-gray-700 text-white shadow-sm"
-                    : "bg-white text-black shadow-sm"
-                  : darkMode
-                    ? "text-gray-400 hover:bg-gray-700 hover:text-white"
-                    : "text-gray-600 hover:bg-gray-200 hover:text-black"
+                  ? "bg-gray-700 text-white shadow-sm"
+                  : "text-gray-400 hover:bg-gray-700 hover:text-white"
               )}
               role="button"
             >
@@ -860,8 +851,7 @@ const ChatInterface: React.FC<{
                 <span
                   onClick={(e) => handleCloseTab(e, tab.id)}
                   className={cn(
-                    "opacity-0 group-hover:opacity-100 rounded p-0.5 transition-all",
-                    darkMode ? "hover:bg-gray-600" : "hover:bg-gray-200"
+                    "opacity-0 group-hover:opacity-100 rounded p-0.5 transition-all hover:bg-gray-600"
                   )}
                 >
                   <X className="w-3 h-3" />
@@ -873,10 +863,7 @@ const ChatInterface: React.FC<{
             <div
               onClick={handleAddTab}
               className={cn(
-                "p-1.5 rounded-md transition-colors cursor-pointer",
-                darkMode
-                  ? "hover:bg-gray-700 text-gray-400"
-                  : "hover:bg-gray-200 text-gray-500"
+                "p-1.5 rounded-md transition-colors cursor-pointer hover:bg-gray-700 text-gray-400"
               )}
               title="New Chat"
               role="button"
@@ -889,8 +876,7 @@ const ChatInterface: React.FC<{
         {/* Messages */}
         <div
           className={cn(
-            "flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50",
-            darkMode && "bg-gray-900"
+            "flex-1 overflow-y-auto p-4 space-y-4 bg-gray-900"
           )}
         >
           {messages.map((msg, idx) => (
@@ -899,19 +885,15 @@ const ChatInterface: React.FC<{
               className={cn(
                 "p-3 rounded-2xl w-fit max-w-[85%] text-sm shadow-sm",
                 msg.role === "user"
-                  ? darkMode
-                    ? "bg-blue-600 text-white self-end ml-auto rounded-br-none"
-                    : "bg-black text-white self-end ml-auto rounded-br-none"
-                  : darkMode
-                    ? "bg-gray-800 border border-gray-700 text-gray-100 mr-auto rounded-bl-none"
-                    : "bg-white border border-gray-200 mr-auto rounded-bl-none text-gray-800"
+                  ? "bg-blue-600 text-white self-end ml-auto rounded-br-none"
+                  : "bg-gray-800 border border-gray-700 text-gray-100 mr-auto rounded-bl-none"
               )}
             >
               {msg.role === "model" ? (
                 <MarkdownPreview
                   source={msg.text}
                   wrapperElement={{
-                    "data-color-mode": darkMode ? "dark" : "light",
+                    "data-color-mode": "dark",
                   }}
                   style={{ backgroundColor: "transparent", color: "inherit" }}
                 />
@@ -926,8 +908,7 @@ const ChatInterface: React.FC<{
         {/* Controls */}
         <div
           className={cn(
-            "p-4 bg-white border-t border-gray-100 space-y-3",
-            darkMode && "bg-gray-900 border-gray-800"
+            "p-4 bg-gray-900 border-t border-gray-800 space-y-3"
           )}
         >
           {/* Row 1: Model Dropdown & Screenshot Toggle */}
@@ -937,10 +918,7 @@ const ChatInterface: React.FC<{
               <DropdownMenu.Trigger asChild>
                 <div
                   className={cn(
-                    "flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-colors outline-none cursor-pointer",
-                    darkMode
-                      ? "bg-gray-800 hover:bg-gray-700 text-gray-200"
-                      : "bg-gray-100 hover:bg-gray-200 text-black"
+                    "flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-colors outline-none cursor-pointer bg-gray-800 hover:bg-gray-700 text-gray-200"
                   )}
                   role="button"
                 >
@@ -951,10 +929,7 @@ const ChatInterface: React.FC<{
 
               <DropdownMenu.Content
                 className={cn(
-                  "z-[10000] min-w-[140px] rounded-md shadow-lg border p-1 animate-in fade-in-0 zoom-in-95 duration-100",
-                  darkMode
-                    ? "bg-gray-800 border-gray-700"
-                    : "bg-white border-gray-200"
+                  "z-[10000] min-w-[140px] rounded-md shadow-lg border p-1 animate-in fade-in-0 zoom-in-95 duration-100 bg-gray-800 border-gray-700"
                 )}
                 sideOffset={5}
                 align="start"
@@ -965,12 +940,8 @@ const ChatInterface: React.FC<{
                     className={cn(
                       "flex items-center px-2 py-2 text-xs rounded-sm cursor-pointer outline-none transition-colors",
                       selectedModel.id === model.id
-                        ? darkMode
-                          ? "bg-gray-700 font-medium text-white"
-                          : "bg-gray-100 font-medium"
-                        : darkMode
-                          ? "hover:bg-gray-700 text-gray-300"
-                          : "hover:bg-gray-50 text-gray-700"
+                        ? "bg-gray-700 font-medium text-white"
+                        : "hover:bg-gray-700 text-gray-300"
                     )}
                     onSelect={() => setSelectedModel(model)}
                   >
@@ -986,12 +957,8 @@ const ChatInterface: React.FC<{
                 className={cn(
                   "p-2 rounded-full transition-all duration-200 cursor-pointer",
                   useGoogleSearch
-                    ? darkMode
-                      ? "bg-orange-900/30 text-orange-400"
-                      : "bg-orange-100 text-orange-600"
-                    : darkMode
-                      ? "bg-gray-800 text-gray-400 hover:bg-gray-700"
-                      : "bg-gray-100 text-gray-400 hover:bg-gray-200"
+                    ? "bg-orange-900/30 text-orange-400"
+                    : "bg-gray-800 text-gray-400 hover:bg-gray-700"
                 )}
                 title="Enable Google Search grounding"
                 role="button"
@@ -1005,12 +972,8 @@ const ChatInterface: React.FC<{
                 className={cn(
                   "p-2 rounded-full transition-all duration-200 cursor-pointer",
                   attachPageContent
-                    ? darkMode
-                      ? "bg-blue-900/30 text-blue-400"
-                      : "bg-blue-100 text-blue-600"
-                    : darkMode
-                      ? "bg-gray-800 text-gray-400 hover:bg-gray-700"
-                      : "bg-gray-100 text-gray-400 hover:bg-gray-200"
+                    ? "bg-blue-900/30 text-blue-400"
+                    : "bg-gray-800 text-gray-400 hover:bg-gray-700"
                 )}
                 title="Attach page content as text"
                 role="button"
@@ -1024,12 +987,8 @@ const ChatInterface: React.FC<{
                 className={cn(
                   "p-2 rounded-full transition-all duration-200 cursor-pointer",
                   attachScreenshot
-                    ? darkMode
-                      ? "bg-green-900/30 text-green-400"
-                      : "bg-green-100 text-green-600"
-                    : darkMode
-                      ? "bg-gray-800 text-gray-400 hover:bg-gray-700"
-                      : "bg-gray-100 text-gray-400 hover:bg-gray-200"
+                    ? "bg-green-900/30 text-green-400"
+                    : "bg-gray-800 text-gray-400 hover:bg-gray-700"
                 )}
                 title="Attach page screenshot"
                 role="button"
@@ -1043,10 +1002,7 @@ const ChatInterface: React.FC<{
           {selectedText && (
             <div
               className={cn(
-                "flex items-center gap-2 px-3 py-2 border rounded-lg text-xs",
-                darkMode
-                  ? "bg-purple-900/20 border-purple-800 text-purple-300"
-                  : "bg-purple-50 border-purple-200 text-purple-700"
+                "flex items-center gap-2 px-3 py-2 border rounded-lg text-xs bg-purple-900/20 border-purple-800 text-purple-300"
               )}
             >
               <MessageCirclePlus className="w-3 h-3 shrink-0" />
@@ -1060,8 +1016,7 @@ const ChatInterface: React.FC<{
               <div
                 onClick={() => setSelectedText("")}
                 className={cn(
-                  "rounded p-0.5 cursor-pointer",
-                  darkMode ? "hover:bg-purple-900/40" : "hover:bg-purple-100"
+                  "rounded p-0.5 cursor-pointer hover:bg-purple-900/40"
                 )}
                 role="button"
               >
@@ -1086,10 +1041,7 @@ const ChatInterface: React.FC<{
                   : "Ask anything..."
               }
               className={cn(
-                "flex-1 p-2.5 text-sm border rounded-lg focus:outline-none focus:ring-1 transition-all placeholder:text-gray-400",
-                darkMode
-                  ? "bg-gray-800 border-gray-700 text-white focus:border-blue-500 focus:ring-blue-500"
-                  : "bg-gray-50 border-gray-200 text-black focus:border-black focus:ring-black"
+                "flex-1 p-2.5 text-sm border rounded-lg focus:outline-none focus:ring-1 transition-all placeholder:text-gray-400 bg-gray-800 border-gray-700 text-white focus:border-blue-500 focus:ring-blue-500"
               )}
             />
 
@@ -1108,9 +1060,7 @@ const ChatInterface: React.FC<{
                     ? "bg-yellow-100 text-yellow-600 animate-pulse pointer-events-none"
                     : recordingState === "error"
                       ? "bg-red-100 text-red-600 pointer-events-none"
-                      : darkMode
-                        ? "bg-gray-800 text-gray-400 hover:bg-gray-700"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      : "bg-gray-800 text-gray-400 hover:bg-gray-700"
               )}
               title={
                 recordingState === "recording"
@@ -1155,15 +1105,13 @@ const ChatInterface: React.FC<{
                 }
               }}
               className={cn(
-                "p-2.5 rounded-full text-white bg-gray-800 transition-colors shrink-0",
+                "p-2.5 rounded-full text-white transition-colors shrink-0",
                 (!inputValue.trim() &&
                   !selectedText &&
                   recordingState !== "recording") ||
                   isLoading
-                  ? "opacity-50 cursor-not-allowed"
-                  : darkMode
-                    ? "bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
-                    : "bg-black text-white hover:bg-gray-800 cursor-pointer"
+                  ? "bg-gray-800 opacity-50 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700 cursor-pointer"
               )}
               role="button"
             >

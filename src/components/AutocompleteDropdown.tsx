@@ -6,7 +6,6 @@ interface AutocompleteDropdownProps {
     inputValue: string;
     onSelect: (command: Command) => void;
     onClose: () => void;
-    isDark: boolean;
 }
 
 export interface AutocompleteDropdownHandle {
@@ -17,8 +16,7 @@ export interface AutocompleteDropdownHandle {
 const AutocompleteDropdown = forwardRef<AutocompleteDropdownHandle, AutocompleteDropdownProps>(({
     inputValue,
     onSelect,
-    onClose,
-    isDark
+    onClose
 }, ref) => {
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [filteredCommands, setFilteredCommands] = useState<Command[]>([]);
@@ -68,8 +66,7 @@ const AutocompleteDropdown = forwardRef<AutocompleteDropdownHandle, Autocomplete
 
     return (
         <div className={cn(
-            "absolute z-[10002] bottom-full left-0 w-full mb-2 rounded-lg shadow-xl overflow-hidden text-sm",
-            isDark ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-100"
+            "absolute z-[10002] bottom-full left-0 w-full mb-2 rounded-lg shadow-xl overflow-hidden text-sm bg-gray-800 border border-gray-700"
         )}>
             {filteredCommands.map((cmd, idx) => (
                 <div
@@ -77,14 +74,12 @@ const AutocompleteDropdown = forwardRef<AutocompleteDropdownHandle, Autocomplete
                     onClick={() => onSelect(cmd)}
                     className={cn(
                         "w-full text-left px-3 py-2 flex flex-col transition-colors cursor-pointer",
-                        isDark
-                            ? (idx === selectedIndex ? "bg-blue-900/50 text-blue-400" : "hover:bg-gray-700")
-                            : (idx === selectedIndex ? "bg-blue-50 text-blue-700" : "hover:bg-gray-50")
+                        idx === selectedIndex ? "bg-blue-900/50 text-blue-400" : "hover:bg-gray-700"
                     )}
                     role="button"
                 >
                     <span className="font-medium">{cmd.id}</span>
-                    <span className={cn("text-xs mt-1", isDark ? "text-gray-500" : "text-gray-400")}>{cmd.description}</span>
+                    <span className={cn("text-xs mt-1 text-gray-500")}>{cmd.description}</span>
                 </div>
             ))}
         </div>
