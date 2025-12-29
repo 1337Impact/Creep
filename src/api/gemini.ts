@@ -1,6 +1,11 @@
 import { GoogleGenAI } from '@google/genai';
 
-const API_KEY = 'AIzaSyDJT8T71jeD6f6argJVfpiCsWEDsE_ti0s';
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+
+if (!API_KEY) {
+  console.error('VITE_GEMINI_API_KEY is not set. Please create a .env file with your Gemini API key.');
+}
+
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 const SYSTEM_INSTRUCTION = `You are a helpful AI browser assistant embedded in a small chat widget overlay on web pages.
