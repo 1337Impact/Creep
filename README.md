@@ -1,4 +1,4 @@
-# Creep - AI Chrome Extension
+# Creep - Stop tab-switching. Start "Creeping." 👁️
 
 AI assistant that sits in the corner of your screen, powered by Google Gemini.
 
