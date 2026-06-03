@@ -65,6 +65,11 @@ Then load the `dist` folder in Chrome as described above. Changes will auto-relo
 - `src/components/ExpandedSelectionPopup.tsx`: Text selection popup
 - `src/api/gemini.ts`: Gemini API integration
 - `src/background.ts`: Service worker for screenshots
+- `src/hooks/useChatTabs.ts`: Chat tab lifecycle and active-tab state
+- `src/hooks/useChatPersistence.ts`: Host-scoped chat persistence/migration
+- `src/hooks/useFloatingButton.ts`: Floating launcher drag/snap behavior
+- `src/hooks/useSelectionAnchor.ts`: Shared text-selection anchoring logic
+- `src/state/chatUpdates.ts`: Pure tab/message/history update helpers
 
 ## Troubleshooting
 

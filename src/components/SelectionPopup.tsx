@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, MessageSquare } from 'lucide-react';
 import ExpandedSelectionPopup from './ExpandedSelectionPopup';
-
-interface ConversationData {
-  userMessage: string;
-  modelResponse: string | null;
-}
+import type { ConversationData } from '@/types/chat';
+import {
+  clearBrowserSelection,
+  getSelectionAnchorPosition,
+} from '@/utils/selection';
 
 interface SelectionPopupProps {
   globalSetSelectedText: ((text: string) => void) | null;
@@ -13,29 +13,38 @@ interface SelectionPopupProps {
   globalAddMessagesToChat: ((conversation: ConversationData) => void) | null;
 }
 
-const SelectionPopup: React.FC<SelectionPopupProps> = ({ globalSetSelectedText, globalSetIsOpen, globalAddMessagesToChat }) => {
+const SelectionPopup: React.FC<SelectionPopupProps> = ({
+  globalSetSelectedText,
+  globalSetIsOpen,
+  globalAddMessagesToChat,
+}) => {
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
   const [currentSelection, setCurrentSelection] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Handle Escape key to close popup
+  const syncFromSelection = () => {
+    const anchor = getSelectionAnchorPosition();
+    if (anchor) {
+      setPosition(anchor);
+    }
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && position) {
+      if (e.key === 'Escape' && position && !isExpanded) {
         setPosition(null);
         setCurrentSelection('');
         setIsExpanded(false);
-        window.getSelection()?.removeAllRanges();
+        clearBrowserSelection();
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [position]);
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
+  }, [position, isExpanded]);
 
   useEffect(() => {
     const handleMouseUp = (e: MouseEvent) => {
-      // Use composedPath to properly detect clicks inside Shadow DOM
       const path = e.composedPath();
       const isInsideExtension = path.some((el) => {
         if (el instanceof HTMLElement) {
@@ -48,36 +57,22 @@ const SelectionPopup: React.FC<SelectionPopupProps> = ({ globalSetSelectedText, 
         return;
       }
 
-      const target = e.target as HTMLElement;
-
       setTimeout(() => {
         const selection = window.getSelection();
         const text = selection?.toString().trim();
 
         if (text && text.length > 0) {
-          const range = selection?.getRangeAt(0);
-          if (range) {
-            const rect = range.getBoundingClientRect();
-            // Reset state on new selection
-            setIsExpanded(false);
-
-            setPosition({
-              x: rect.left + rect.width / 2,
-              y: rect.top - 45
-            });
-            setCurrentSelection(text);
-          }
-        } else {
-          if (!isInsideExtension) {
-            setPosition(null);
-            setCurrentSelection('');
-          }
+          syncFromSelection();
+          setIsExpanded(false);
+          setCurrentSelection(text);
+        } else if (!isInsideExtension) {
+          setPosition(null);
+          setCurrentSelection('');
         }
       }, 10);
     };
 
     const handleMouseDown = (e: MouseEvent) => {
-      // Use composedPath to properly detect clicks inside Shadow DOM
       const path = e.composedPath();
       const isInsidePopup = path.some((el) => {
         if (el instanceof HTMLElement) {
@@ -94,17 +89,8 @@ const SelectionPopup: React.FC<SelectionPopupProps> = ({ globalSetSelectedText, 
     };
 
     const handleScroll = () => {
-      // Only update position for collapsed popup; expanded popup handles its own scroll
       if (!isExpanded) {
-        const selection = window.getSelection();
-        if (selection && selection.rangeCount > 0 && selection.toString().trim()) {
-          const range = selection.getRangeAt(0);
-          const rect = range.getBoundingClientRect();
-          setPosition({
-            x: rect.left + rect.width / 2,
-            y: rect.top - 45
-          });
-        }
+        syncFromSelection();
       }
     };
 
@@ -121,17 +107,15 @@ const SelectionPopup: React.FC<SelectionPopupProps> = ({ globalSetSelectedText, 
 
   const handleAddToChat = (conversation?: ConversationData) => {
     if (conversation && globalAddMessagesToChat && globalSetIsOpen) {
-      // Add the conversation messages to chat
       globalAddMessagesToChat(conversation);
       globalSetIsOpen(true);
       setPosition(null);
-      window.getSelection()?.removeAllRanges();
+      clearBrowserSelection();
     } else if (currentSelection && globalSetSelectedText && globalSetIsOpen) {
-      // Just add selection text to chat (no conversation yet)
       globalSetSelectedText(currentSelection);
       globalSetIsOpen(true);
       setPosition(null);
-      window.getSelection()?.removeAllRanges();
+      clearBrowserSelection();
     }
   };
 

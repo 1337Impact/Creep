@@ -2,20 +2,14 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import SelectionPopup from './components/SelectionPopup';
 import ChatInterface from './components/ChatInterface';
+import type { ConversationData } from '@/types/chat';
 import styles from './input.css?inline';
 
-interface ConversationData {
-    userMessage: string;
-    modelResponse: string | null;
-}
-
-// Global state for selection popup communication (maintained for backward compatibility with logic structure)
 let globalSetSelectedText: ((text: string) => void) | null = null;
 let globalSetIsOpen: ((open: boolean) => void) | null = null;
 let globalAddMessagesToChat: ((conversation: ConversationData) => void) | null = null;
 
 const App: React.FC = () => {
-    // We lift the setters registration to here so we can pass them to children or manage them
     const registerSetters = (
         setSelectedText: (text: string) => void,
         setIsOpen: (open: boolean) => void,
@@ -59,6 +53,17 @@ shadowRoot.appendChild(styleElement);
 
 // Mount React App (Chat Interface + Selection Popup - both inside Shadow DOM for style isolation)
 const rootContainer = document.createElement('div');
+rootContainer.setAttribute('data-extension-root', '');
+
+// Stop keyboard events from propagating to the host page
+const stopKeyEvents = (e: KeyboardEvent) => {
+    e.stopPropagation();
+};
+rootContainer.addEventListener('keydown', stopKeyEvents);
+rootContainer.addEventListener('keyup', stopKeyEvents);
+rootContainer.addEventListener('keypress', stopKeyEvents);
+
 shadowRoot.appendChild(rootContainer);
+
 const root = createRoot(rootContainer);
 root.render(<App />);

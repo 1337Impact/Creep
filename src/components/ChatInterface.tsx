@@ -1,29 +1,55 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
-  sendChatMessageStream,
-  transcribeAudio,
-  ChatMessage,
-} from "../api/gemini";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+  aiService,
+  API_TOKEN_STORAGE_KEYS,
+  GEMINI_MISSING_TOKEN_ERROR,
+  getProviderForModel,
+  getReadableAiError,
+  hasApiToken,
+  resolveApiToken,
+} from "@/ai";
+import { cn } from "@/utils";
+import { truncateText } from "@/utils/text";
 import {
-  Mic,
-  SendHorizontal,
   X,
-  ChevronDown,
-  Image as ImageIcon,
-  Loader2,
   Plus,
-  FileText,
   MessageCirclePlus,
-  Search,
+  Settings,
 } from "lucide-react";
 import MarkdownPreview from "@uiw/react-markdown-preview";
+import {
+  PromptInputBox,
+  type PromptInputBoxHandle,
+  type SendOptions,
+} from "@/components/ui/ai-prompt-box";
+import {
+  CHAT_MAX_SIZE,
+  CHAT_MAX_TABS,
+  CHAT_MIN_SIZE,
+  CHAT_MODELS,
+  createInitialTab,
+  DEFAULT_MODEL,
+  getModelById,
+  PAGE_CONTENT_MAX_CHARS,
+  SELECTED_TEXT_CHIP_PREVIEW_LENGTH,
+} from "@/constants/chat";
+import { GEMINI_MISSING_TOKEN_UI_MESSAGE } from "@/constants/messages";
+import { SessionsHistoryPopup } from "@/components/SessionsHistoryPopup";
+import { useChatTabs } from "@/hooks/useChatTabs";
+import { useChatPersistence } from "@/hooks/useChatPersistence";
+import { useFloatingButton } from "@/hooks/useFloatingButton";
+import {
+  appendModelError,
+  appendStreamingChunk,
+  appendUserMessage,
+  setTabHistory,
+  startStreamingModelMessage,
+  updateTabById,
+} from "@/state/chatUpdates";
+import type { ConversationData, ChatModel } from "@/types/chat";
 // @ts-ignore - re-resizable types will be available after npm install
 import { Resizable } from "re-resizable";
 
-// Owl icon SVG component matching the extension icon
 const OwlIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -39,67 +65,7 @@ const OwlIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-
-const MODELS = [
-  { id: "models/gemini-flash-lite-latest", name: "Flash Lite" },
-  { id: "models/gemini-flash-latest", name: "Flash" },
-  { id: "models/gemini-2.5-pro", name: "Pro" },
-];
-
-const FUNNY_NAMES = [
-  "Zibble",
-  "Flompy",
-  "Glorp",
-  "Snizzle",
-  "Blarbo",
-  "Womple",
-  "Boingo",
-  "Tinko",
-  "Plompy",
-  "Snorko",
-  "Xarlo",
-  "Vreeb",
-  "Quorp",
-  "Zarnox",
-  "Vloppo",
-  "Dreeko",
-  "Klarn",
-  "Noovo",
-  "Zyggo",
-  "Plix",
-  "Mippo",
-  "Luli",
-  "Poffi",
-  "Nunu",
-  "Zuzu",
-  "Piplo",
-  "Momozi",
-  "Fluffo",
-  "Titiroo",
-  "Kikiro",
-];
-
-function getRandomUnusedName(usedNames: string[]): string {
-  const availableNames = FUNNY_NAMES.filter(
-    (name) => !usedNames.includes(name)
-  );
-  if (availableNames.length === 0) {
-    return `Chat ${usedNames.length + 1}`;
-  }
-  return availableNames[Math.floor(Math.random() * availableNames.length)];
-}
-
-function getInitialGreeting(name: string): string {
-  return `Hello, I'm ${name}, here to help...`;
-}
-
-interface ConversationData {
-  userMessage: string;
-  modelResponse: string | null;
-}
+const INITIAL_TAB = createInitialTab();
 
 const ChatInterface: React.FC<{
   registerSetters: (
@@ -109,73 +75,69 @@ const ChatInterface: React.FC<{
   ) => void;
 }> = ({ registerSetters }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [tabs, setTabs] = useState<
-    Array<{
-      id: string;
-      name: string;
-      messages: Array<{ text: string; role: "user" | "model" }>;
-      history: ChatMessage[];
-    }>
-  >(() => {
-    const initialName = getRandomUnusedName([]);
-    return [
-      {
-        id: "1",
-        name: initialName,
-        messages: [{ text: getInitialGreeting(initialName), role: "model" }],
-        history: [],
-      },
-    ];
-  });
-  const [activeTabId, setActiveTabId] = useState("1");
-
-  const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+  const {
+    tabs,
+    setTabs,
+    activeTab,
+    activeTabId,
+    setActiveTabId,
+    addTab,
+    closeTab,
+    openSession,
+    deleteSession,
+    sessions,
+    isSessionActive,
+    setModelForActiveTab,
+    addConversationToActiveTab,
+  } = useChatTabs(INITIAL_TAB);
   const messages = activeTab.messages;
 
   const [isLoading, setIsLoading] = useState(false);
-  const [inputValue, setInputValue] = useState("");
-  const [recordingState, setRecordingState] = useState<
-    "idle" | "recording" | "processing" | "error"
-  >("idle");
-  const [attachScreenshot, setAttachScreenshot] = useState(false);
-  const [attachPageContent, setAttachPageContent] = useState(false);
-  const [useGoogleSearch, setUseGoogleSearch] = useState(false);
   const [selectedText, setSelectedText] = useState("");
-  const [selectedModel, setSelectedModel] = useState(MODELS[1]); // Default to Flash
+  const [selectedModel, setSelectedModel] = useState<ChatModel>(DEFAULT_MODEL);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSessionsOpen, setIsSessionsOpen] = useState(false);
+  const [apiTokenInput, setApiTokenInput] = useState("");
+  const [settingsError, setSettingsError] = useState("");
 
-  // Button position state
-  const [buttonPosition, setButtonPosition] = useState<{
-    x: number;
-    y: number;
-    side: "left" | "right";
-  }>(() => {
-    // Default to bottom-right
-    return { x: window.innerWidth, y: window.innerHeight - 100, side: "right" };
+  const {
+    buttonPosition,
+    setButtonPosition,
+    isDragging,
+    buttonRef,
+    hasDraggedRef,
+    handleMouseDown,
+  } = useFloatingButton();
+
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const promptInputRef = useRef<PromptInputBoxHandle>(null);
+
+  const { chatSize, setChatSize } = useChatPersistence({
+    tabs,
+    activeTabId,
+    setTabs,
+    setActiveTabId,
+    buttonPosition,
+    setButtonPosition,
   });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const hasDraggedRef = useRef(false); // Track if a meaningful drag occurred
-  const buttonRef = useRef<HTMLDivElement>(null);
-
-  // Chat size state
-  const [chatSize, setChatSize] = useState({ width: 384, height: 600 });
-
-  // Refs for audio recording
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-
-  // Ref for auto-scrolling
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
   };
 
   useEffect(() => {
     scrollToBottom();
   }, [messages, isOpen, activeTabId]);
 
-  // Handle Escape key to close chat
+  useEffect(() => {
+    if (isOpen) {
+      promptInputRef.current?.focus();
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {
@@ -183,379 +145,157 @@ const ChatInterface: React.FC<{
       }
     };
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown, true);
+    return () => document.removeEventListener("keydown", handleKeyDown, true);
   }, [isOpen]);
 
-  // Function to add conversation messages from selection popup
-  const addMessagesToChat = (conversation: ConversationData) => {
-    setTabs((prev) =>
-      prev.map((tab) => {
-        if (tab.id === activeTabId) {
-          const newMessages = [...tab.messages];
-          // Add user message
-          newMessages.push({ text: conversation.userMessage, role: "user" });
-          // Add model response if exists
-          if (conversation.modelResponse) {
-            newMessages.push({
-              text: conversation.modelResponse,
-              role: "model",
-            });
-          }
-
-          // Also update history for context
-          const newHistory = [...tab.history];
-          newHistory.push({
-            role: "user",
-            parts: [{ text: conversation.userMessage }],
-          });
-          if (conversation.modelResponse) {
-            newHistory.push({
-              role: "model",
-              parts: [{ text: conversation.modelResponse }],
-            });
-          }
-
-          return {
-            ...tab,
-            messages: newMessages,
-            history: newHistory,
-          };
-        }
-        return tab;
-      })
-    );
-  };
-
-  // Expose setSelectedText, setIsOpen, and addMessagesToChat
   useEffect(() => {
-    registerSetters(setSelectedText, setIsOpen, addMessagesToChat);
-  }, [registerSetters, activeTabId]);
+    registerSetters(setSelectedText, setIsOpen, addConversationToActiveTab);
+  }, [registerSetters, addConversationToActiveTab]);
 
-  // Load from storage on mount
   useEffect(() => {
-    const key = `chat_${btoa(window.location.href).slice(0, 50)}`;
-    chrome.storage.local.get([key, "buttonPosition"], (result) => {
-      if (result[key]) {
-        const { tabs: savedTabs, activeTabId: savedActiveId } = result[key];
-        if (savedTabs && savedTabs.length > 0) {
-          setTabs(savedTabs);
-          if (savedActiveId) {
-            setActiveTabId(savedActiveId);
-          }
-        }
-      }
-      if (result.buttonPosition) {
-        // Ensure position is valid for current window size
-        const savedPos = result.buttonPosition;
-        const validY = Math.max(
-          0,
-          Math.min(window.innerHeight - 100, savedPos.y)
-        );
-        const validX = savedPos.side === "left" ? 0 : window.innerWidth;
-        setButtonPosition({
-          x: validX,
-          y: validY,
-          side: savedPos.side || "right",
-        });
-      }
-    });
-  }, []);
-
-  // Save to storage when state changes
-  useEffect(() => {
-    const key = `chat_${btoa(window.location.href).slice(0, 50)}`;
-    const timeoutId = setTimeout(() => {
-      chrome.storage.local.set({
-        [key]: {
-          tabs,
-          activeTabId,
-          lastUpdated: Date.now(),
-        },
-      });
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [tabs, activeTabId]);
-
-  // Save button position to storage
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      chrome.storage.local.set({ buttonPosition });
-    }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [buttonPosition]);
-
-  // Drag handlers
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      setDragOffset({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      });
-      hasDraggedRef.current = false; // Reset at the start of a potential drag
-      setIsDragging(true);
+    if (!activeTab) return;
+    const modelForTab = getModelById(activeTab.modelId);
+    if (selectedModel.id !== modelForTab.id) {
+      setSelectedModel(modelForTab);
     }
-  };
+  }, [activeTabId, tabs]);
 
-  useEffect(() => {
-    if (!isDragging) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      hasDraggedRef.current = true; // Mark that a drag has occurred
-      const newX = e.clientX - dragOffset.x;
-      const newY = e.clientY - dragOffset.y;
-
-      // Constrain Y to viewport
-      const constrainedY = Math.max(
-        0,
-        Math.min(window.innerHeight - 100, newY)
-      );
-
-      setButtonPosition((prev) => ({
-        ...prev,
-        x: newX,
-        y: constrainedY,
-      }));
-    };
-
-    const handleMouseUp = (e: MouseEvent) => {
-      setIsDragging(false);
-
-      // Determine which side the button is on based on current mouse position
-      const windowWidth = window.innerWidth;
-      const side = e.clientX < windowWidth / 2 ? "left" : "right";
-
-      // Snap to edge - x represents distance from left edge
-      const snappedX = side === "left" ? 0 : windowWidth;
-
-      setButtonPosition((prev) => ({
-        x: snappedX,
-        y: prev.y,
-        side,
-      }));
-    };
-
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
-
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, [isDragging, dragOffset, buttonPosition]);
-
-  // Disable text selection while dragging
-  useEffect(() => {
-    if (isDragging) {
-      document.body.style.userSelect = 'none';
-    } else {
-      document.body.style.userSelect = '';
-    }
-    return () => {
-      document.body.style.userSelect = '';
-    };
-  }, [isDragging]);
-
-  const handleAddTab = () => {
-    if (tabs.length >= 3) return;
-    const newId = Date.now().toString();
-    const usedNames = tabs.map((tab) => tab.name);
-    const newName = getRandomUnusedName(usedNames);
-    const newTab = {
-      id: newId,
-      name: newName,
-      messages: [{ text: getInitialGreeting(newName), role: "model" as const }],
-      history: [],
-    };
-    setTabs([...tabs, newTab]);
-    setActiveTabId(newId);
+  const handleModelChange = (model: ChatModel) => {
+    setSelectedModel(model);
+    setModelForActiveTab(model.id);
   };
 
   const handleCloseTab = (e: React.MouseEvent, tabId: string) => {
     e.stopPropagation();
-    if (tabs.length === 1) return; // Prevent closing last tab
-
-    const newTabs = tabs.filter((t) => t.id !== tabId);
-    setTabs(newTabs);
-
-    if (activeTabId === tabId) {
-      setActiveTabId(newTabs[newTabs.length - 1].id);
-    }
+    closeTab(tabId);
   };
 
-  const handleSend = async () => {
-    const text = inputValue.trim();
-    if (!text && !selectedText) return;
+  function extractPageContent(): string {
+    const clone = document.body.cloneNode(true) as HTMLElement;
+    clone
+      .querySelectorAll("script, style, noscript, #chrome-ai-helper-host")
+      .forEach((el) => el.remove());
 
-    // Build the full prompt with context
-    let fullPrompt = text;
-    let displayText = text;
+    let text = clone.innerText || clone.textContent || "";
+    text = text.replace(/\s+/g, " ").trim();
 
-    if (selectedText) {
-      fullPrompt = `[SELECTED TEXT FROM WEBPAGE]\n"${selectedText}"\n[END SELECTED TEXT]\n\n${text ||
-        "The user has shared this selected text from the webpage. Please acknowledge it and ask how you can help with it."
-        }`;
-      displayText =
-        text ||
-        `Selected: "${selectedText.length > 50
-          ? selectedText.substring(0, 50) + "..."
-          : selectedText
-        }"`;
+    if (text.length > PAGE_CONTENT_MAX_CHARS) {
+      text =
+        text.substring(0, PAGE_CONTENT_MAX_CHARS) + "... [content truncated]";
     }
 
-    if (attachPageContent) {
-      const pageContent = extractPageContent();
-      fullPrompt = `[PAGE CONTENT]\n${pageContent}\n[END PAGE CONTENT]\n\n${fullPrompt}`;
+    return text;
+  }
+
+  const handleSend = async (messageOverride?: string, options?: SendOptions) => {
+    const text = (messageOverride ?? "").trim();
+    const enableSearch = options?.enableSearch ?? false;
+
+    if (
+      !text &&
+      !selectedText &&
+      !options?.attachPageContent &&
+      !options?.attachScreenshot
+    ) {
+      return;
     }
 
-    // Update messages for active tab
+    if (!hasApiToken(getProviderForModel(selectedModel.id))) {
+      setTabs((prev) =>
+        updateTabById(prev, activeTabId, (tab) => ({
+          ...tab,
+          messages: [
+            ...tab.messages,
+            { text: GEMINI_MISSING_TOKEN_UI_MESSAGE, role: "model" },
+          ],
+        }))
+      );
+      return;
+    }
+
+    const capturedSelectedText = selectedText;
+    const pageContent = options?.attachPageContent ? extractPageContent() : undefined;
+
+    const prepared = aiService.prepareChatPrompt(
+      text,
+      capturedSelectedText,
+      pageContent
+    );
+    const displayText = prepared.displayText;
+    const historySnapshot = activeTab.history;
+    const userHistoryEntry = {
+      role: "user" as const,
+      content: [{ type: "text" as const, text: prepared.fullPrompt }],
+    };
+
     setTabs((prev) =>
-      prev.map((tab) => {
-        if (tab.id === activeTabId) {
-          return {
-            ...tab,
-            messages: [...tab.messages, { text: displayText, role: "user" }],
-          };
-        }
-        return tab;
-      })
+      updateTabById(prev, activeTabId, (tab) => appendUserMessage(tab, displayText))
     );
 
-    setInputValue("");
     setSelectedText("");
     setIsLoading(true);
 
     try {
-      let imageBase64: string | undefined = undefined;
+      let screenshot: string | undefined;
 
-      if (attachScreenshot) {
-        imageBase64 = await captureScreenshot();
+      if (options?.attachScreenshot) {
+        screenshot = await captureScreenshot();
       }
 
-      // Update history
-      const currentHistory = [
-        ...activeTab.history,
-        {
-          role: "user" as const,
-          parts: [{ text: fullPrompt }],
-        },
-      ];
-
-      // Update tab history immediately to avoid race conditions if user switches
       setTabs((prev) =>
-        prev.map((tab) => {
-          if (tab.id === activeTabId) {
-            return { ...tab, history: currentHistory };
-          }
-          return tab;
-        })
+        updateTabById(prev, activeTabId, (tab) =>
+          setTabHistory(tab, [...historySnapshot, userHistoryEntry])
+        )
       );
 
-      // Initial empty model message for streaming
       let accumulatedResponse = "";
       setTabs((prev) =>
-        prev.map((tab) => {
-          if (tab.id === activeTabId) {
-            return {
-              ...tab,
-              messages: [...tab.messages, { text: "", role: "model" }],
-            };
-          }
-          return tab;
-        })
+        updateTabById(prev, activeTabId, (tab) => startStreamingModelMessage(tab))
       );
 
-      const stream = sendChatMessageStream(
-        currentHistory,
-        fullPrompt,
-        imageBase64,
-        selectedModel.id,
-        useGoogleSearch
-      );
+      const stream = aiService.streamChat({
+        history: historySnapshot,
+        message: text,
+        selectedText: capturedSelectedText,
+        pageContent,
+        screenshot,
+        modelId: selectedModel.id,
+        enableSearch: enableSearch,
+      });
 
       for await (const chunk of stream) {
         accumulatedResponse += chunk;
-
         setTabs((prev) =>
-          prev.map((tab) => {
-            if (tab.id === activeTabId) {
-              const newMessages = [...tab.messages];
-              // Update the last message (which is the model's streaming message)
-              newMessages[newMessages.length - 1] = {
-                text: accumulatedResponse,
-                role: "model",
-              };
-              return {
-                ...tab,
-                messages: newMessages,
-              };
-            }
-            return tab;
-          })
+          updateTabById(prev, activeTabId, (tab) =>
+            appendStreamingChunk(tab, accumulatedResponse)
+          )
         );
       }
 
       const updatedHistory = [
-        ...currentHistory,
+        ...historySnapshot,
+        userHistoryEntry,
         {
-          role: "model" as const,
-          parts: [{ text: accumulatedResponse }],
+          role: "assistant" as const,
+          content: [{ type: "text" as const, text: accumulatedResponse }],
         },
       ];
 
       setTabs((prev) =>
-        prev.map((tab) => {
-          if (tab.id === activeTabId) {
-            return {
-              ...tab,
-              history: updatedHistory,
-            };
-          }
-          return tab;
-        })
+        updateTabById(prev, activeTabId, (tab) => setTabHistory(tab, updatedHistory))
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage =
-        error?.message ||
-        (typeof error === "string" ? error : "Unknown error occurred");
+        error instanceof Error && error.message === GEMINI_MISSING_TOKEN_ERROR
+          ? GEMINI_MISSING_TOKEN_UI_MESSAGE
+          : getReadableAiError(error, getProviderForModel(selectedModel.id));
       setTabs((prev) =>
-        prev.map((tab) => {
-          if (tab.id === activeTabId) {
-            // Remove the empty streaming message if it exists and replace/append error
-            const msgs = [...tab.messages];
-            if (
-              msgs.length > 0 &&
-              msgs[msgs.length - 1].role === "model" &&
-              msgs[msgs.length - 1].text === ""
-            ) {
-              msgs.pop();
-            }
-
-            return {
-              ...tab,
-              messages: [
-                ...msgs,
-                { text: `Error: ${errorMessage}`, role: "model" },
-              ],
-            };
-          }
-          return tab;
-        })
+        updateTabById(prev, activeTabId, (tab) => appendModelError(tab, errorMessage))
       );
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    // Stop propagation to prevent webpage keyboard shortcuts from interfering
-    e.stopPropagation();
-    
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleSend();
+      promptInputRef.current?.focus();
     }
   };
 
@@ -573,152 +313,6 @@ const ChatInterface: React.FC<{
         }
       );
     });
-  };
-
-  const extractPageContent = (): string => {
-    // Get the main content, excluding scripts, styles, and our extension
-    const clone = document.body.cloneNode(true) as HTMLElement;
-
-    // Remove script and style elements
-    clone
-      .querySelectorAll("script, style, noscript, #chrome-ai-helper-host")
-      .forEach((el) => el.remove());
-
-    // Get text content
-    let text = clone.innerText || clone.textContent || "";
-
-    // Clean up whitespace
-    text = text.replace(/\s+/g, " ").trim();
-
-    // Limit to reasonable length (about 10k chars)
-    if (text.length > 10000) {
-      text = text.substring(0, 10000) + "... [content truncated]";
-    }
-
-    return text;
-  };
-
-  const startRecording = async () => {
-    try {
-      setRecordingState("recording");
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onerror = (event: any) => {
-        console.error("MediaRecorder error:", event.error);
-        setRecordingState("error");
-        setTabs((prev) =>
-          prev.map((tab) => {
-            if (tab.id === activeTabId) {
-              return {
-                ...tab,
-                messages: [
-                  ...tab.messages,
-                  {
-                    text: `Recording error: ${event.error?.message || "Unknown error"
-                      }`,
-                    role: "model",
-                  },
-                ],
-              };
-            }
-            return tab;
-          })
-        );
-      };
-
-      mediaRecorder.onstop = async () => {
-        if (audioChunksRef.current.length > 0) {
-          const audioBlob = new Blob(audioChunksRef.current, {
-            type: "audio/wav",
-          });
-          await handleAudioTranscription(audioBlob);
-        } else {
-          setRecordingState("idle");
-        }
-        stream.getTracks().forEach((track) => track.stop());
-      };
-
-      mediaRecorder.start();
-    } catch (error: any) {
-      console.error("Error accessing microphone:", error);
-      setRecordingState("error");
-      // Reset to idle after a short delay so the user can try again
-      setTimeout(() => setRecordingState("idle"), 3000);
-
-      const errorMessage =
-        error.name === "NotAllowedError" ||
-          error.name === "PermissionDeniedError"
-          ? "Microphone permission denied. Please allow microphone access in your browser settings."
-          : `Could not access microphone: ${error.message}`;
-
-      setTabs((prev) =>
-        prev.map((tab) => {
-          if (tab.id === activeTabId) {
-            return {
-              ...tab,
-              messages: [
-                ...tab.messages,
-                { text: errorMessage, role: "model" },
-              ],
-            };
-          }
-          return tab;
-        })
-      );
-    }
-  };
-
-  const stopRecording = () => {
-    if (
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state !== "inactive"
-    ) {
-      mediaRecorderRef.current.stop();
-      // State change to processing happens in onstop -> handleAudioTranscription
-    }
-  };
-
-  const handleAudioTranscription = async (audioBlob: Blob) => {
-    setRecordingState("processing");
-    try {
-      const reader = new FileReader();
-      reader.readAsDataURL(audioBlob);
-      reader.onloadend = async () => {
-        const base64Audio = (reader.result as string).split(",")[1];
-        const transcription = await transcribeAudio(base64Audio);
-        setInputValue(transcription);
-        setRecordingState("idle");
-      };
-    } catch (error: any) {
-      setRecordingState("error");
-      setTabs((prev) =>
-        prev.map((tab) => {
-          if (tab.id === activeTabId) {
-            return {
-              ...tab,
-              messages: [
-                ...tab.messages,
-                {
-                  text: `Transcription failed: ${error.message}`,
-                  role: "model",
-                },
-              ],
-            };
-          }
-          return tab;
-        })
-      );
-      setTimeout(() => setRecordingState("idle"), 3000);
-    }
   };
 
   if (!isOpen) {
@@ -747,11 +341,10 @@ const ChatInterface: React.FC<{
         ref={buttonRef}
         onMouseDown={handleMouseDown}
         onClick={() => {
-          // Only open if we didn't just finish dragging
           if (!hasDraggedRef.current) {
             setIsOpen(true);
           }
-          hasDraggedRef.current = false; // Reset for next interaction
+          hasDraggedRef.current = false;
         }}
         style={buttonStyle}
         className={cn(
@@ -787,10 +380,18 @@ const ChatInterface: React.FC<{
           height: chatSize.height + d.height,
         });
       }}
-      minWidth={300}
-      minHeight={400}
-      maxWidth={window.innerWidth > 1024 ? 1024 : window.innerWidth}
-      maxHeight={window.innerHeight > 900 ? 900 : window.innerHeight}
+      minWidth={CHAT_MIN_SIZE.width}
+      minHeight={CHAT_MIN_SIZE.height}
+      maxWidth={
+        window.innerWidth > CHAT_MAX_SIZE.width
+          ? CHAT_MAX_SIZE.width
+          : window.innerWidth
+      }
+      maxHeight={
+        window.innerHeight > CHAT_MAX_SIZE.height
+          ? CHAT_MAX_SIZE.height
+          : window.innerHeight
+      }
       enable={{
         top: true,
         bottom: false,
@@ -806,10 +407,9 @@ const ChatInterface: React.FC<{
     >
       <div
         className={cn(
-          "w-full h-full bg-gray-900 border-gray-900 border shadow-2xl rounded-xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 duration-200 transition-colors"
+          "w-full h-full bg-gray-900 border-gray-900 border shadow-2xl rounded-xl flex flex-col overflow-visible animate-in slide-in-from-bottom-10 duration-200 transition-colors"
         )}
       >
-        {/* Header */}
         <div
           className={cn(
             "bg-gray-950 border-b border-gray-800 text-white p-4 flex justify-between items-center"
@@ -828,12 +428,16 @@ const ChatInterface: React.FC<{
           </div>
         </div>
 
-        {/* Tabs */}
         <div
           className={cn(
-            "bg-gray-800 border-gray-700 flex items-center px-2 py-2 gap-1 overflow-x-auto border-b"
+            "relative z-30 shrink-0 bg-gray-800 border-gray-700 flex items-center px-2 py-2 gap-1 border-b overflow-visible"
           )}
         >
+          <div
+            className={cn(
+              "flex items-center gap-1 overflow-x-auto flex-1 min-w-0"
+            )}
+          >
           {tabs.map((tab) => (
             <div
               key={tab.id}
@@ -859,9 +463,9 @@ const ChatInterface: React.FC<{
               )}
             </div>
           ))}
-          {tabs.length < 3 && (
+          {tabs.length < CHAT_MAX_TABS && (
             <div
-              onClick={handleAddTab}
+              onClick={addTab}
               className={cn(
                 "p-1.5 rounded-md transition-colors cursor-pointer hover:bg-gray-700 text-gray-400"
               )}
@@ -871,12 +475,87 @@ const ChatInterface: React.FC<{
               <Plus className="w-4 h-4" />
             </div>
           )}
+          </div>
+          <div className="ml-auto pl-1 flex items-center gap-0.5 shrink-0">
+            <SessionsHistoryPopup
+              isOpen={isSessionsOpen}
+              onToggle={() => {
+                setIsSessionsOpen((prev) => !prev);
+                if (!isSessionsOpen) setIsSettingsOpen(false);
+              }}
+              onClose={() => setIsSessionsOpen(false)}
+              sessions={sessions}
+              isSessionActive={isSessionActive}
+              onSelect={(s) => {
+                void openSession(s).then((ok) => ok && setIsSessionsOpen(false));
+              }}
+              onDelete={deleteSession}
+            />
+            <div
+              onClick={() => {
+                setApiTokenInput(resolveApiToken("gemini"));
+                setSettingsError("");
+                setIsSettingsOpen((prev) => !prev);
+                setIsSessionsOpen(false);
+              }}
+              className={cn(
+                "p-1.5 rounded-md transition-colors cursor-pointer hover:bg-gray-700 text-gray-400 hover:text-white"
+              )}
+              title="Gemini API Settings"
+              role="button"
+            >
+              <Settings className="w-4 h-4" />
+            </div>
+          </div>
         </div>
 
-        {/* Messages */}
+        {isSettingsOpen && (
+          <div className="border-b border-gray-700 bg-gray-800 px-3 py-3">
+            <div className="flex items-center gap-2">
+              <input
+                type="password"
+                value={apiTokenInput}
+                onChange={(e) => {
+                  setApiTokenInput(e.target.value);
+                  if (settingsError) setSettingsError("");
+                }}
+                placeholder="Paste Gemini API token"
+                className={cn(
+                  "flex-1 bg-gray-900 border border-gray-600 text-gray-100 text-xs rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                )}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const trimmedToken = apiTokenInput.trim();
+                  if (!trimmedToken) {
+                    setSettingsError("Token cannot be empty.");
+                    return;
+                  }
+                  window.localStorage.setItem(
+                    API_TOKEN_STORAGE_KEYS.gemini,
+                    trimmedToken
+                  );
+                  setSettingsError("");
+                  setIsSettingsOpen(false);
+                }}
+                className={cn(
+                  "px-3 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-colors"
+                )}
+              >
+                Submit
+              </button>
+            </div>
+            {settingsError && (
+              <p className="mt-2 text-xs text-red-400">{settingsError}</p>
+            )}
+          </div>
+        )}
+
         <div
+          ref={messagesContainerRef}
           className={cn(
-            "flex-1 overflow-y-auto p-4 space-y-4 bg-gray-900"
+            "relative z-0 flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 space-y-4 bg-gray-900 rounded-b-xl"
           )}
         >
           {messages.map((msg, idx) => (
@@ -902,103 +581,13 @@ const ChatInterface: React.FC<{
               )}
             </div>
           ))}
-          <div ref={messagesEndRef} />
         </div>
 
-        {/* Controls */}
         <div
           className={cn(
-            "p-4 bg-gray-900 border-t border-gray-800 space-y-3"
+            "relative z-10 p-4 bg-gray-900 border-t border-gray-800 space-y-3 overflow-visible"
           )}
         >
-          {/* Row 1: Model Dropdown & Screenshot Toggle */}
-          <div className="flex items-center justify-between">
-            {/* Model Dropdown */}
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger asChild>
-                <div
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-colors outline-none cursor-pointer bg-gray-800 hover:bg-gray-700 text-gray-200"
-                  )}
-                  role="button"
-                >
-                  {selectedModel.name}
-                  <ChevronDown className="w-3 h-3" />
-                </div>
-              </DropdownMenu.Trigger>
-
-              <DropdownMenu.Content
-                className={cn(
-                  "z-[10000] min-w-[140px] rounded-md shadow-lg border p-1 animate-in fade-in-0 zoom-in-95 duration-100 bg-gray-800 border-gray-700"
-                )}
-                sideOffset={5}
-                align="start"
-              >
-                {MODELS.map((model) => (
-                  <DropdownMenu.Item
-                    key={model.id}
-                    className={cn(
-                      "flex items-center px-2 py-2 text-xs rounded-sm cursor-pointer outline-none transition-colors",
-                      selectedModel.id === model.id
-                        ? "bg-gray-700 font-medium text-white"
-                        : "hover:bg-gray-700 text-gray-300"
-                    )}
-                    onSelect={() => setSelectedModel(model)}
-                  >
-                    {model.name}
-                  </DropdownMenu.Item>
-                ))}
-              </DropdownMenu.Content>
-            </DropdownMenu.Root>
-            <div className="flex items-center gap-2">
-              {/* Search Button */}
-              <div
-                onClick={() => setUseGoogleSearch(!useGoogleSearch)}
-                className={cn(
-                  "p-2 rounded-full transition-all duration-200 cursor-pointer",
-                  useGoogleSearch
-                    ? "bg-orange-900/30 text-orange-400"
-                    : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-                )}
-                title="Enable Google Search grounding"
-                role="button"
-              >
-                <Search className="w-4 h-4" />
-              </div>
-
-              {/* Page Content Button */}
-              <div
-                onClick={() => setAttachPageContent(!attachPageContent)}
-                className={cn(
-                  "p-2 rounded-full transition-all duration-200 cursor-pointer",
-                  attachPageContent
-                    ? "bg-blue-900/30 text-blue-400"
-                    : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-                )}
-                title="Attach page content as text"
-                role="button"
-              >
-                <FileText className="w-4 h-4" />
-              </div>
-
-              {/* Screenshot Button */}
-              <div
-                onClick={() => setAttachScreenshot(!attachScreenshot)}
-                className={cn(
-                  "p-2 rounded-full transition-all duration-200 cursor-pointer",
-                  attachScreenshot
-                    ? "bg-green-900/30 text-green-400"
-                    : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-                )}
-                title="Attach page screenshot"
-                role="button"
-              >
-                <ImageIcon className="w-4 h-4" />
-              </div>
-            </div>
-          </div>
-
-          {/* Selected Text Indicator */}
           {selectedText && (
             <div
               className={cn(
@@ -1007,11 +596,7 @@ const ChatInterface: React.FC<{
             >
               <MessageCirclePlus className="w-3 h-3 shrink-0" />
               <span className="truncate flex-1">
-                "
-                {selectedText.length > 40
-                  ? selectedText.substring(0, 40) + "..."
-                  : selectedText}
-                "
+                "{truncateText(selectedText, SELECTED_TEXT_CHIP_PREVIEW_LENGTH)}"
               </span>
               <div
                 onClick={() => setSelectedText("")}
@@ -1025,99 +610,19 @@ const ChatInterface: React.FC<{
             </div>
           )}
 
-          {/* Row 2: Input & Mic & Send */}
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              autoFocus
-              onKeyUp={(e) => e.stopPropagation()}
-              onKeyPress={(e) => e.stopPropagation()}
-              placeholder={
-                selectedText
-                  ? "Add a message or press send..."
-                  : "Ask anything..."
-              }
-              className={cn(
-                "flex-1 p-2.5 text-sm border rounded-lg focus:outline-none focus:ring-1 transition-all placeholder:text-gray-400 bg-gray-800 border-gray-700 text-white focus:border-blue-500 focus:ring-blue-500"
-              )}
-            />
-
-            {/* Mic Button */}
-            <div
-              onMouseDown={startRecording}
-              onMouseUp={stopRecording}
-              onMouseLeave={() =>
-                recordingState === "recording" && stopRecording()
-              }
-              className={cn(
-                "p-2.5 rounded-full transition-all duration-200 flex items-center justify-center shrink-0 relative cursor-pointer",
-                recordingState === "recording"
-                  ? "bg-red-500 text-white scale-110 shadow-md"
-                  : recordingState === "processing"
-                    ? "bg-yellow-100 text-yellow-600 animate-pulse pointer-events-none"
-                    : recordingState === "error"
-                      ? "bg-red-100 text-red-600 pointer-events-none"
-                      : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-              )}
-              title={
-                recordingState === "recording"
-                  ? "Release to stop"
-                  : recordingState === "processing"
-                    ? "Processing..."
-                    : recordingState === "error"
-                      ? "Error"
-                      : "Hold to record"
-              }
-              role="button"
-            >
-              {recordingState === "processing" ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Mic
-                  className={cn(
-                    "w-4 h-4",
-                    recordingState === "recording" && "animate-pulse"
-                  )}
-                />
-              )}
-
-              {/* Recording ring animation */}
-              {recordingState === "recording" && (
-                <span className="absolute inset-0 rounded-full border-2 border-red-500 animate-ping opacity-75"></span>
-              )}
-            </div>
-
-            {/* Send Button */}
-            <div
-              onClick={() => {
-                if (
-                  !(
-                    (!inputValue.trim() &&
-                      !selectedText &&
-                      recordingState !== "recording") ||
-                    isLoading
-                  )
-                ) {
-                  handleSend();
-                }
-              }}
-              className={cn(
-                "p-2.5 rounded-full text-white transition-colors shrink-0",
-                (!inputValue.trim() &&
-                  !selectedText &&
-                  recordingState !== "recording") ||
-                  isLoading
-                  ? "bg-gray-800 opacity-50 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700 cursor-pointer"
-              )}
-              role="button"
-            >
-              <SendHorizontal className="w-4 h-4" />
-            </div>
-          </div>
+          <PromptInputBox
+            ref={promptInputRef}
+            onSend={handleSend}
+            isLoading={isLoading}
+            models={CHAT_MODELS}
+            selectedModel={selectedModel}
+            onModelChange={handleModelChange}
+            placeholder={
+              selectedText
+                ? "Add a message or press send..."
+                : "Ask anything..."
+            }
+          />
         </div>
       </div>
     </Resizable>

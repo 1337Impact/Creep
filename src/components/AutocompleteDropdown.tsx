@@ -16,7 +16,7 @@ export interface AutocompleteDropdownHandle {
 const AutocompleteDropdown = forwardRef<AutocompleteDropdownHandle, AutocompleteDropdownProps>(({
     inputValue,
     onSelect,
-    onClose
+    onClose: _onClose,
 }, ref) => {
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [filteredCommands, setFilteredCommands] = useState<Command[]>([]);
@@ -54,7 +54,7 @@ const AutocompleteDropdown = forwardRef<AutocompleteDropdownHandle, Autocomplete
                 }
                 return true;
             } else if (e.key === 'Escape') {
-                onClose();
+                // onClose();
                 setFilteredCommands([]); // Hide
                 return true;
             }

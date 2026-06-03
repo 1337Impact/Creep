@@ -1,15 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, ArrowRight, Loader2 } from 'lucide-react';
 import MarkdownPreview from '@uiw/react-markdown-preview';
-import { sendInlineQuestion } from '../api/gemini';
-import { cn } from '../utils';
-import { COMMANDS, Command } from '../commands';
+import { aiService, getReadableAiError } from '@/ai';
+import { cn } from '@/utils';
+import { truncateText } from '@/utils/text';
+import {
+  SELECTION_PREVIEW_LENGTH,
+  SELECTION_QUESTION_PREVIEW_LENGTH,
+} from '@/constants/chat';
+import { COMMANDS, Command } from '@/commands';
 import AutocompleteDropdown, { AutocompleteDropdownHandle } from './AutocompleteDropdown';
-
-interface ConversationData {
-    userMessage: string;
-    modelResponse: string | null;
-}
+import type { ConversationData } from '@/types/chat';
+import { getSelectionAnchorPosition } from '@/utils/selection';
 
 interface ExpandedSelectionPopupProps {
     currentSelection: string;
@@ -24,29 +26,20 @@ const ExpandedSelectionPopup: React.FC<ExpandedSelectionPopupProps> = ({
     onClose,
     onAddToChat,
 }) => {
-    // Position state managed locally for scroll responsiveness
     const [position, setPosition] = useState(initialPosition);
-
-    // Input/response state
     const [inputValue, setInputValue] = useState('');
     const [response, setResponse] = useState<string | null>(null);
-    const [lastAskedQuestion, setLastAskedQuestion] = useState<string>('');
+    const [lastAskedQuestion, setLastAskedQuestion] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
     const inputRef = useRef<HTMLInputElement>(null);
     const dropdownRef = useRef<AutocompleteDropdownHandle>(null);
 
-    // Handle scroll to update position
     useEffect(() => {
         const handleScroll = () => {
-            const selection = window.getSelection();
-            if (selection && selection.rangeCount > 0 && selection.toString().trim()) {
-                const range = selection.getRangeAt(0);
-                const rect = range.getBoundingClientRect();
-                setPosition({
-                    x: rect.left + rect.width / 2,
-                    y: rect.top - 45
-                });
+            const anchor = getSelectionAnchorPosition();
+            if (anchor) {
+                setPosition(anchor);
             }
         };
 
@@ -54,9 +47,12 @@ const ExpandedSelectionPopup: React.FC<ExpandedSelectionPopupProps> = ({
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
-    // Focus input on mount
+    const focusInput = () => {
+        requestAnimationFrame(() => inputRef.current?.focus());
+    };
+
     useEffect(() => {
-        inputRef.current?.focus();
+        focusInput();
     }, []);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,15 +61,18 @@ const ExpandedSelectionPopup: React.FC<ExpandedSelectionPopupProps> = ({
 
     const handleSelectCommand = (command: Command) => {
         setInputValue(command.id + ' ');
-        setTimeout(() => inputRef.current?.focus(), 0);
+        focusInput();
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
-        // Stop propagation to prevent webpage keyboard shortcuts from interfering
         e.stopPropagation();
-        
-        // Delegate to dropdown first
+
         if (dropdownRef.current?.handleKeyDown(e)) {
+            return;
+        }
+
+        if (e.key === 'Escape') {
+            onClose();
             return;
         }
 
@@ -88,46 +87,44 @@ const ExpandedSelectionPopup: React.FC<ExpandedSelectionPopupProps> = ({
 
         setIsLoading(true);
         setResponse(null);
+        focusInput();
 
         let question = inputValue.trim();
-        let displayQuestion = question; // Keep original for display
+        let displayQuestion = question;
         let useGoogleSearch = false;
 
-        // Parse commands
         const matchedCommand = COMMANDS.find(cmd => question.startsWith(cmd.id));
         if (matchedCommand) {
             const args = question.replace(matchedCommand.id, '').trim() || 'English';
-            displayQuestion = `${matchedCommand.label}: "${currentSelection.length > 50 ? currentSelection.substring(0, 50) + '...' : currentSelection}"${args !== 'English' ? ` → ${args}` : ''}`;
+            displayQuestion = `${matchedCommand.label}: "${truncateText(currentSelection, SELECTION_PREVIEW_LENGTH)}"${args !== 'English' ? ` → ${args}` : ''}`;
             question = matchedCommand.prompt
                 .replace('{text}', currentSelection)
                 .replace('{args}', args);
             useGoogleSearch = matchedCommand.useGoogleSearch ?? false;
         } else {
-            // Regular question about selection
-            displayQuestion = `Re: "${currentSelection.length > 30 ? currentSelection.substring(0, 30) + '...' : currentSelection}": ${question}`;
+            displayQuestion = `Re: "${truncateText(currentSelection, SELECTION_QUESTION_PREVIEW_LENGTH)}": ${question}`;
         }
 
         setLastAskedQuestion(displayQuestion);
 
         try {
-            const result = await sendInlineQuestion(currentSelection, question, useGoogleSearch);
+            const result = await aiService.sendInlineQuestion(currentSelection, question, { enableSearch: useGoogleSearch });
             setResponse(result);
-        } catch (err: any) {
-            setResponse('Error: ' + (err.message || 'Failed to get response'));
+        } catch (err: unknown) {
+            setResponse('Sorry — ' + getReadableAiError(err));
         } finally {
             setIsLoading(false);
+            focusInput();
         }
     };
 
     const handleOpenInChat = () => {
-        // If we have a conversation (question + response), pass it along
         if (lastAskedQuestion && response) {
             onAddToChat({
                 userMessage: lastAskedQuestion,
                 modelResponse: response
             });
         } else {
-            // No conversation yet, just add selection to chat
             onAddToChat();
         }
     };
@@ -144,7 +141,6 @@ const ExpandedSelectionPopup: React.FC<ExpandedSelectionPopupProps> = ({
                 "fixed z-[10001] rounded-xl shadow-2xl w-[320px] text-sm font-sans flex flex-col animate-in fade-in zoom-in-95 duration-200 bg-gray-900 text-white border border-gray-700"
             )}
         >
-            {/* Input Area */}
             <div className={cn(
                 "p-3 border-b flex gap-2 items-center rounded-t-xl border-gray-700 bg-gray-800/50"
             )}>
@@ -190,7 +186,6 @@ const ExpandedSelectionPopup: React.FC<ExpandedSelectionPopupProps> = ({
                 </div>
             </div>
 
-            {/* Response Area */}
             {response && (
                 <div className={cn(
                     "p-4 max-h-[200px] overflow-y-auto bg-gray-900"
@@ -203,7 +198,6 @@ const ExpandedSelectionPopup: React.FC<ExpandedSelectionPopupProps> = ({
                 </div>
             )}
 
-            {/* Footer/Actions */}
             <div className={cn(
                 "px-3 py-2 border-t flex justify-between items-center text-xs rounded-b-xl bg-gray-800 border-gray-700 text-gray-400"
             )}>
