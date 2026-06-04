@@ -1,17 +1,62 @@
+import { readActiveSession, writeActiveSession } from "@/agent/active-session";
+import { deleteAgentRun } from "@/agent/persistence";
+import { MSG, sendToRuntime } from "@/agent/protocol";
 import { normalizeHistory } from "@/ai/history";
 import {
   getModelById,
   getPageHost,
   isChatStorageKey,
 } from "@/constants/chat";
-import type { ChatPersistedState, ChatSessionEntry, ChatTab } from "@/types/chat";
+import type {
+  ChatMessageView,
+  ChatPersistedState,
+  ChatSessionEntry,
+  ChatTab,
+} from "@/types/chat";
 
 export const toSessionKey = (storageKey: string, tabId: string) =>
   `${storageKey}:${tabId}`;
 
+export const STALE_AGENT_RUN_MESSAGE =
+  "This agent run was interrupted and could not be resumed.";
+
+export function normalizeChatMessage(
+  message: ChatMessageView,
+  activeAgentId?: string | null
+): ChatMessageView {
+  if (message.role === "user" || message.role === "model") {
+    return message;
+  }
+
+  const slim = {
+    role: "agent" as const,
+    agentId: message.agentId,
+    status: message.status,
+    text: message.text,
+    toolCallCount: message.toolCallCount,
+  };
+
+  if (message.status === "running") {
+    if (activeAgentId && message.agentId === activeAgentId) {
+      return { ...slim, status: "running" as const };
+    }
+    return {
+      ...slim,
+      status: "error" as const,
+      text: message.text ?? STALE_AGENT_RUN_MESSAGE,
+    };
+  }
+
+  return {
+    ...slim,
+    status: message.status ?? (message.text ? "done" : "error"),
+  };
+}
+
 export function hydrateStoredTab(
   tab: ChatTab,
-  state?: ChatPersistedState
+  state?: ChatPersistedState,
+  activeAgentId?: string | null
 ): ChatTab {
   const host =
     tab.host ??
@@ -21,6 +66,9 @@ export function hydrateStoredTab(
     ...tab,
     modelId: getModelById(tab.modelId).id,
     host,
+    messages: (tab.messages ?? []).map((message) =>
+      normalizeChatMessage(message as ChatMessageView, activeAgentId)
+    ),
     history: normalizeHistory(
       tab.history as Parameters<typeof normalizeHistory>[0]
     ),
@@ -71,12 +119,53 @@ export async function loadSessionTab(
   };
 }
 
+function agentIdsInTab(tab: ChatTab): string[] {
+  const ids = new Set<string>();
+  for (const message of tab.messages ?? []) {
+    if (message.role === "agent" && message.agentId) {
+      ids.add(message.agentId);
+    }
+  }
+  return [...ids];
+}
+
+async function cleanupAgentsForDeletedTab(
+  storageKey: string,
+  tab: ChatTab
+): Promise<void> {
+  const agentIds = agentIdsInTab(tab);
+  if (!agentIds.length) return;
+
+  const stored = await readActiveSession();
+  const touchesActive =
+    stored &&
+    (agentIds.includes(stored.agentId) ||
+      (stored.chatStorageKey === storageKey && stored.activeTabId === tab.id));
+
+  if (touchesActive) {
+    try {
+      await sendToRuntime({ type: MSG.AGENT_CANCEL, tabId: stored!.tabId });
+    } catch {
+      // Background may be unavailable during teardown
+    }
+    await writeActiveSession(null);
+  }
+
+  await Promise.all(agentIds.map((id) => deleteAgentRun(id)));
+}
+
 export async function deleteStoredSession(
   storageKey: string,
   tabId: string
 ): Promise<void> {
   const state = await readState(storageKey);
   if (!state?.tabs) return;
+
+  const removed = state.tabs.find((t) => t.id === tabId);
+  if (removed) {
+    await cleanupAgentsForDeletedTab(storageKey, removed);
+  }
+
   const tabs = state.tabs.filter((t) => t.id !== tabId);
   if (!tabs.length) {
     chrome.storage.local.remove(storageKey);

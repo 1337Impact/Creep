@@ -2,21 +2,24 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import SelectionPopup from './components/SelectionPopup';
 import ChatInterface from './components/ChatInterface';
+import { initAgentBridge } from './content/agent-bridge';
 import type { ConversationData } from '@/types/chat';
 import styles from './input.css?inline';
 
+initAgentBridge();
+
 let globalSetSelectedText: ((text: string) => void) | null = null;
-let globalSetIsOpen: ((open: boolean) => void) | null = null;
+let globalOpenChat: (() => void) | null = null;
 let globalAddMessagesToChat: ((conversation: ConversationData) => void) | null = null;
 
 const App: React.FC = () => {
     const registerSetters = (
         setSelectedText: (text: string) => void,
-        setIsOpen: (open: boolean) => void,
+        openChat: () => void,
         addMessagesToChat: (conversation: ConversationData) => void
     ) => {
         globalSetSelectedText = setSelectedText;
-        globalSetIsOpen = setIsOpen;
+        globalOpenChat = openChat;
         globalAddMessagesToChat = addMessagesToChat;
     };
 
@@ -34,7 +37,7 @@ const App: React.FC = () => {
 const SelectionPopupWrapper: React.FC = () => {
     return <SelectionPopup
         globalSetSelectedText={(text) => globalSetSelectedText?.(text)}
-        globalSetIsOpen={(open) => globalSetIsOpen?.(open)}
+        globalOpenChat={() => globalOpenChat?.()}
         globalAddMessagesToChat={(conversation) => globalAddMessagesToChat?.(conversation)}
     />;
 };

@@ -5,10 +5,16 @@ export interface ConversationData {
   modelResponse: string | null;
 }
 
-export interface ChatMessageView {
-  text: string;
-  role: "user" | "model";
-}
+export type ChatMessageView =
+  | { role: "user"; text: string }
+  | { role: "model"; text: string }
+  | {
+      role: "agent";
+      agentId: string;
+      status: "running" | "done" | "error";
+      text?: string;
+      toolCallCount?: number;
+    };
 
 export interface ChatTab {
   id: string;
@@ -42,3 +48,5 @@ export interface ChatModel {
   id: string;
   name: string;
 }
+
+export type AgentChatMessage = Extract<ChatMessageView, { role: "agent" }>;

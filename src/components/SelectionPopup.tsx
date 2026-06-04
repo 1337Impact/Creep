@@ -9,13 +9,13 @@ import {
 
 interface SelectionPopupProps {
   globalSetSelectedText: ((text: string) => void) | null;
-  globalSetIsOpen: ((open: boolean) => void) | null;
+  globalOpenChat: (() => void) | null;
   globalAddMessagesToChat: ((conversation: ConversationData) => void) | null;
 }
 
 const SelectionPopup: React.FC<SelectionPopupProps> = ({
   globalSetSelectedText,
-  globalSetIsOpen,
+  globalOpenChat,
   globalAddMessagesToChat,
 }) => {
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
@@ -106,14 +106,14 @@ const SelectionPopup: React.FC<SelectionPopupProps> = ({
   }, [isExpanded]);
 
   const handleAddToChat = (conversation?: ConversationData) => {
-    if (conversation && globalAddMessagesToChat && globalSetIsOpen) {
+    if (conversation && globalAddMessagesToChat && globalOpenChat) {
       globalAddMessagesToChat(conversation);
-      globalSetIsOpen(true);
+      globalOpenChat();
       setPosition(null);
       clearBrowserSelection();
-    } else if (currentSelection && globalSetSelectedText && globalSetIsOpen) {
+    } else if (currentSelection && globalSetSelectedText && globalOpenChat) {
       globalSetSelectedText(currentSelection);
-      globalSetIsOpen(true);
+      globalOpenChat();
       setPosition(null);
       clearBrowserSelection();
     }

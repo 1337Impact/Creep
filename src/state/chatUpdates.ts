@@ -38,16 +38,60 @@ export function appendStreamingChunk(
 
 export function appendModelError(tab: ChatTab, errorMessage: string): ChatTab {
   const messages = [...tab.messages];
+  const last = messages[messages.length - 1];
   if (
     messages.length > 0 &&
-    messages[messages.length - 1].role === "model" &&
-    messages[messages.length - 1].text === ""
+    last.role === "model" &&
+    last.text === ""
   ) {
     messages.pop();
   }
   return {
     ...tab,
     messages: [...messages, { text: `Sorry — ${errorMessage}`, role: "model" }],
+  };
+}
+
+export function startAgentMessage(tab: ChatTab, agentId: string): ChatTab {
+  return {
+    ...tab,
+    messages: [
+      ...tab.messages,
+      { role: "agent", agentId, status: "running" },
+    ],
+  };
+}
+
+export function finalizeAgentMessage(
+  tab: ChatTab,
+  agentMessageIndex: number,
+  patch: { text: string; status: "done" | "error"; toolCallCount?: number }
+): ChatTab {
+  const messages = [...tab.messages];
+  const msg = messages[agentMessageIndex];
+  if (!msg || msg.role !== "agent") return tab;
+
+  messages[agentMessageIndex] = {
+    ...msg,
+    text: patch.text,
+    status: patch.status,
+    toolCallCount: patch.toolCallCount ?? msg.toolCallCount,
+  };
+  return { ...tab, messages };
+}
+
+export function appendAgentHistory(
+  tab: ChatTab,
+  task: string,
+  summary: string
+): ChatTab {
+  return {
+    ...tab,
+    history: [
+      ...tab.history,
+      { role: "user", content: [{ type: "text", text: task }] },
+      { role: "assistant", content: [{ type: "text", text: summary }] },
+    ],
   };
 }
 

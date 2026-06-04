@@ -1,8 +1,23 @@
+export type {
+  AgentContentPart,
+  AgentFunctionCall,
+  AgentFunctionDeclaration,
+  AgentMessage,
+  AgentMessageRole,
+  AgentTurnRequest,
+  AgentTurnResponse,
+} from "./agent-turn";
+export {
+  agentTextMessage,
+  hasFunctionResponseParts,
+} from "./agent-turn";
 export { aiService, AiService } from "./ai-service";
 export {
   API_TOKEN_STORAGE_KEYS,
   GEMINI_API_TOKEN_STORAGE_KEY,
+  ensureExtensionTokens,
   hasApiToken,
+  persistApiToken,
   resolveApiToken,
 } from "./auth";
 export {
@@ -45,5 +60,7 @@ export {
   getMessageText,
   textMessage,
 } from "./types";
+export type { AgentCapableProvider } from "./providers/factory";
+export { resolveAgentProvider } from "./providers/factory";
 
 export { GEMINI_MISSING_TOKEN_ERROR } from "@/constants/messages";

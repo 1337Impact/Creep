@@ -55,9 +55,9 @@ function addTabWithLimit(
   return [...tabs.filter((_, i) => i !== (drop >= 0 ? drop : 0)), tab];
 }
 
-export function useChatTabs(initialTab: ChatTab) {
-  const [tabs, setTabs] = useState<ChatTab[]>(() => [initialTab]);
-  const [activeTabId, setActiveTabId] = useState(initialTab.id);
+export function useChatTabs() {
+  const [tabs, setTabs] = useState<ChatTab[]>([]);
+  const [activeTabId, setActiveTabId] = useState("");
   const [sessions, setSessions] = useState<ChatSessionEntry[]>([]);
   const pageKey = getChatStorageKey();
 
@@ -69,7 +69,7 @@ export function useChatTabs(initialTab: ChatTab) {
     refreshSessions();
   }, [refreshSessions, tabs, activeTabId]);
 
-  const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
+  const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0] ?? null;
 
   const addTab = useCallback(() => {
     setTabs((prev) => {

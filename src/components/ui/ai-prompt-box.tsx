@@ -9,6 +9,7 @@ import {
   Mic,
   Globe,
   BrainCog,
+  Bot,
   Image as ImageIcon,
   FileText,
 } from "lucide-react";
@@ -413,6 +414,7 @@ export interface SendOptions {
   enableSearch?: boolean;
   attachPageContent?: boolean;
   attachScreenshot?: boolean;
+  agentMode?: boolean;
 }
 
 export interface PromptInputBoxHandle {
@@ -445,6 +447,7 @@ export const PromptInputBox = React.forwardRef<PromptInputBoxHandle, PromptInput
     const [showSearch, setShowSearch] = React.useState(false);
     const [attachPageContent, setAttachPageContent] = React.useState(false);
     const [attachScreenshot, setAttachScreenshot] = React.useState(false);
+    const [agentMode, setAgentMode] = React.useState(false);
     const [modelDialogOpen, setModelDialogOpen] = React.useState(false);
     const modelMenuRef = React.useRef<HTMLDivElement>(null);
     const textareaRef = React.useRef<HTMLTextAreaElement>(null);
@@ -476,11 +479,13 @@ export const PromptInputBox = React.forwardRef<PromptInputBoxHandle, PromptInput
           enableSearch: showSearch,
           attachPageContent,
           attachScreenshot,
+          agentMode,
         });
         setInput("");
         setShowSearch(false);
         setAttachPageContent(false);
         setAttachScreenshot(false);
+        setAgentMode(false);
         focusInput();
       }
     };
@@ -494,15 +499,17 @@ export const PromptInputBox = React.forwardRef<PromptInputBoxHandle, PromptInput
 
     const hasText = input.trim() !== "";
     const canSubmit =
-      hasText || attachPageContent || attachScreenshot;
+      agentMode ? hasText : hasText || attachPageContent || attachScreenshot;
 
-    const activePlaceholder = showSearch
-      ? "Search the web..."
-      : attachPageContent
-        ? "Ask with page context..."
-        : attachScreenshot
-          ? "Ask about this page..."
-          : placeholder;
+    const activePlaceholder = agentMode
+      ? "Describe a task for the agent..."
+      : showSearch
+        ? "Search the web..."
+        : attachPageContent
+          ? "Ask with page context..."
+          : attachScreenshot
+            ? "Ask about this page..."
+            : placeholder;
 
     return (
       <>
@@ -539,7 +546,14 @@ export const PromptInputBox = React.forwardRef<PromptInputBoxHandle, PromptInput
             />
           )}
 
-          <PromptInputActions className="flex items-center justify-between gap-2 p-0 pt-2">
+          <PromptInputActions
+            className="flex items-center justify-between gap-2 p-0 pt-2"
+            onMouseDown={(e) => e.preventDefault()}
+            onKeyDownCapture={(e) => {
+              if (isRecording || document.activeElement === textareaRef.current) return;
+              if ((e.ctrlKey || e.metaKey) && e.key === "v") textareaRef.current?.focus();
+            }}
+          >
             <div
               className={cn(
                 "flex items-center gap-1 transition-opacity duration-300",
@@ -549,7 +563,13 @@ export const PromptInputBox = React.forwardRef<PromptInputBoxHandle, PromptInput
               <PromptInputAction tooltip="Attach page content">
                 <button
                   type="button"
-                  onClick={() => setAttachPageContent((prev) => !prev)}
+                  onClick={() => {
+                    setAttachPageContent((prev) => {
+                      const next = !prev;
+                      if (next) setAgentMode(false);
+                      return next;
+                    });
+                  }}
                   className={cn(
                     "flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-colors",
                     attachPageContent
@@ -562,10 +582,42 @@ export const PromptInputBox = React.forwardRef<PromptInputBoxHandle, PromptInput
                 </button>
               </PromptInputAction>
 
+              <PromptInputAction tooltip="Agent mode">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAgentMode((prev) => {
+                      const next = !prev;
+                      if (next) {
+                        setShowSearch(false);
+                        setAttachPageContent(false);
+                        setAttachScreenshot(false);
+                      }
+                      return next;
+                    });
+                  }}
+                  className={cn(
+                    "flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-colors",
+                    agentMode
+                      ? "bg-[#F59E0B]/15 text-[#F59E0B] hover:bg-[#F59E0B]/25"
+                      : "text-[#9CA3AF] hover:bg-gray-600/30 hover:text-[#D1D5DB]"
+                  )}
+                  disabled={isRecording}
+                >
+                  <Bot className="h-5 w-5 transition-colors" />
+                </button>
+              </PromptInputAction>
+
               <div className="flex items-center">
                 <button
                   type="button"
-                  onClick={() => setShowSearch((prev) => !prev)}
+                  onClick={() => {
+                    setShowSearch((prev) => {
+                      const next = !prev;
+                      if (next) setAgentMode(false);
+                      return next;
+                    });
+                  }}
                   className={cn(
                     "rounded-full transition-all flex items-center gap-1 px-2 py-1 border h-8",
                     showSearch
@@ -679,7 +731,13 @@ export const PromptInputBox = React.forwardRef<PromptInputBoxHandle, PromptInput
 
                 <button
                   type="button"
-                  onClick={() => setAttachScreenshot((prev) => !prev)}
+                  onClick={() => {
+                    setAttachScreenshot((prev) => {
+                      const next = !prev;
+                      if (next) setAgentMode(false);
+                      return next;
+                    });
+                  }}
                   className={cn(
                     "rounded-full transition-all flex items-center gap-1 px-2 py-1 border h-8",
                     attachScreenshot
