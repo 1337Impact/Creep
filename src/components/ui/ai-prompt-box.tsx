@@ -424,6 +424,7 @@ export interface PromptInputBoxHandle {
 
 export interface PromptInputBoxProps {
   onSend?: (message: string, options?: SendOptions) => void;
+  onStop?: () => void;
   isLoading?: boolean;
   placeholder?: string;
   className?: string;
@@ -436,6 +437,7 @@ export const PromptInputBox = React.forwardRef<PromptInputBoxHandle, PromptInput
   (props, ref) => {
     const {
       onSend = () => {},
+      onStop = () => {},
       isLoading = false,
       placeholder = "Type your message here...",
       className,
@@ -810,11 +812,11 @@ export const PromptInputBox = React.forwardRef<PromptInputBoxHandle, PromptInput
                       : "bg-transparent hover:bg-gray-600/30 text-[#9CA3AF] hover:text-[#D1D5DB]"
                 )}
                 onClick={() => {
-                  if (isRecording) setIsRecording(false);
-                  else if (hasText) handleSubmit();
+                  if (isLoading) onStop();
+                  else if (isRecording) setIsRecording(false);
+                  else if (canSubmit) handleSubmit();
                   else setIsRecording(true);
                 }}
-                disabled={isLoading && !hasText}
               >
                 {isLoading ? (
                   <Square className="h-4 w-4 fill-[#1F2023] animate-pulse" />

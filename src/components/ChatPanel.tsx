@@ -117,6 +117,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const agentTaskRef = useRef<string>("");
   const keepaliveCloseRef = useRef<(() => void) | null>(null);
+  const activeOperationRef = useRef<"chat" | "agent" | null>(null);
+  const chatAbortRef = useRef(false);
 
   const { startRun, openKeepalive } = useAgentRunEvents({
     onStarted: (agentId) => {
@@ -173,6 +175,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       keepaliveCloseRef.current?.();
       keepaliveCloseRef.current = null;
       setAgentSessionActive(null);
+      activeOperationRef.current = null;
       setIsLoading(false);
       promptInputRef.current?.focus();
     },
@@ -180,6 +183,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const onAgentSessionRestore = useCallback(
     (_session: AgentPersistenceSession) => {
+      activeOperationRef.current = "agent";
       setIsLoading(true);
       keepaliveCloseRef.current?.();
       keepaliveCloseRef.current = openKeepalive();
@@ -297,6 +301,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     );
     setSelectedText("");
     setIsLoading(true);
+    activeOperationRef.current = "agent";
 
     const chatStorageKey = getChatStorageKey();
     setAgentSessionActive({
@@ -342,10 +347,52 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       setTabs((prev) =>
         updateTabById(prev, activeTabId, (tab) => appendModelError(tab, errorMessage))
       );
+      activeOperationRef.current = null;
       setIsLoading(false);
       promptInputRef.current?.focus();
     }
   };
+
+  const handleStop = useCallback(async () => {
+    const hasRunningAgent = messages.some(
+      (m) => m.role === "agent" && m.status === "running"
+    );
+
+    if (activeOperationRef.current === "agent" || hasRunningAgent) {
+      try {
+        await sendToRuntime({ type: MSG.AGENT_CANCEL, tabId: 0 });
+      } catch {
+        // Background may be unavailable during teardown.
+      }
+
+      keepaliveCloseRef.current?.();
+      keepaliveCloseRef.current = null;
+      setAgentSessionActive(null);
+
+      setTabs((prev) =>
+        updateTabById(prev, activeTabId, (tab) => {
+          const idx = tab.messages.findIndex(
+            (m) => m.role === "agent" && m.status === "running"
+          );
+          if (idx < 0) return tab;
+          return finalizeAgentMessage(tab, idx, {
+            text: "Stopped.",
+            status: "error",
+          });
+        })
+      );
+
+      activeOperationRef.current = null;
+      setIsLoading(false);
+      promptInputRef.current?.focus();
+      return;
+    }
+
+    chatAbortRef.current = true;
+    activeOperationRef.current = null;
+    setIsLoading(false);
+    promptInputRef.current?.focus();
+  }, [activeTabId, messages, setTabs, setAgentSessionActive]);
 
   const handleSend = async (messageOverride?: string, options?: SendOptions) => {
     if (!activeTab) return;
@@ -416,6 +463,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
     setSelectedText("");
     setIsLoading(true);
+    chatAbortRef.current = false;
+    activeOperationRef.current = "chat";
+
+    let accumulatedResponse = "";
 
     try {
       let screenshot: string | undefined;
@@ -424,13 +475,14 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         screenshot = await captureScreenshot();
       }
 
+      if (chatAbortRef.current) return;
+
       setTabs((prev) =>
         updateTabById(prev, activeTabId, (tab) =>
           setTabHistory(tab, [...historySnapshot, userHistoryEntry])
         )
       );
 
-      let accumulatedResponse = "";
       setTabs((prev) =>
         updateTabById(prev, activeTabId, (tab) => startStreamingModelMessage(tab))
       );
@@ -446,12 +498,41 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       });
 
       for await (const chunk of stream) {
+        if (chatAbortRef.current) break;
         accumulatedResponse += chunk;
         setTabs((prev) =>
           updateTabById(prev, activeTabId, (tab) =>
             appendStreamingChunk(tab, accumulatedResponse)
           )
         );
+      }
+
+      if (chatAbortRef.current) {
+        if (accumulatedResponse) {
+          const updatedHistory = [
+            ...historySnapshot,
+            userHistoryEntry,
+            {
+              role: "assistant" as const,
+              content: [{ type: "text" as const, text: accumulatedResponse }],
+            },
+          ];
+          setTabs((prev) =>
+            updateTabById(prev, activeTabId, (tab) => setTabHistory(tab, updatedHistory))
+          );
+        } else {
+          setTabs((prev) =>
+            updateTabById(prev, activeTabId, (tab) => {
+              const messages = [...tab.messages];
+              const last = messages[messages.length - 1];
+              if (last?.role === "model" && !last.text) {
+                messages.pop();
+              }
+              return { ...tab, messages };
+            })
+          );
+        }
+        return;
       }
 
       const updatedHistory = [
@@ -467,6 +548,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         updateTabById(prev, activeTabId, (tab) => setTabHistory(tab, updatedHistory))
       );
     } catch (error: unknown) {
+      if (chatAbortRef.current) return;
       const errorMessage =
         error instanceof Error && error.message === GEMINI_MISSING_TOKEN_ERROR
           ? GEMINI_MISSING_TOKEN_UI_MESSAGE
@@ -475,7 +557,12 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         updateTabById(prev, activeTabId, (tab) => appendModelError(tab, errorMessage))
       );
     } finally {
-      setIsLoading(false);
+      if (activeOperationRef.current === "chat") {
+        activeOperationRef.current = null;
+      }
+      if (!chatAbortRef.current) {
+        setIsLoading(false);
+      }
       promptInputRef.current?.focus();
     }
   };
@@ -505,6 +592,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     left: buttonPosition.side === "left" ? "16px" : "auto",
     right: buttonPosition.side === "right" ? "16px" : "auto",
     zIndex: 9999,
+    border: "1px solid rgba(255, 255, 255, 0.2)",
+    borderRadius: "12px",
   };
 
   return (
@@ -792,6 +881,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           <PromptInputBox
             ref={promptInputRef}
             onSend={handleSend}
+            onStop={handleStop}
             isLoading={isLoading}
             models={CHAT_MODELS}
             selectedModel={selectedModel}

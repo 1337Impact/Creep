@@ -14,7 +14,7 @@ export function ModelLoadingDots() {
   }, []);
 
   return (
-    <span className="inline-block w-[3.5ch] text-gray-400" aria-label="Loading">
+    <span className="inline-block w-[3ch] text-gray-400" aria-label="Loading">
       {".".repeat(dotCount)}
     </span>
   );
