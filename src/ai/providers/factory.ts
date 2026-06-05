@@ -3,6 +3,7 @@ import { AiError } from "../errors";
 import { getModelById } from "../models";
 import type { ProviderId } from "../types";
 import { GeminiProvider } from "./gemini.provider";
+import { OpenAIProvider } from "./openai.provider";
 import type { AiProvider } from "./provider.interface";
 
 export type AgentCapableProvider = {
@@ -11,6 +12,7 @@ export type AgentCapableProvider = {
 
 const providers: Partial<Record<ProviderId, AiProvider>> = {
   gemini: new GeminiProvider(),
+  openai: new OpenAIProvider(),
 };
 
 export function resolveProviderForModel(modelId: string): AiProvider {

@@ -10,12 +10,15 @@ const ChatInterface: React.FC<{
   registerSetters: (
     setSelectedText: (text: string) => void,
     openChat: () => void,
+    toggleChat: () => void,
+    openChatWithVoice: () => void,
     addMessagesToChat: (conversation: ConversationData) => void
   ) => void;
 }> = ({ registerSetters }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [chatMounted, setChatMounted] = useState(false);
   const [selectedText, setSelectedText] = useState("");
+  const [voiceRecordingRequestId, setVoiceRecordingRequestId] = useState(0);
   const [pendingConversation, setPendingConversation] =
     useState<ConversationData | null>(null);
 
@@ -42,6 +45,17 @@ const ChatInterface: React.FC<{
     setIsOpen(false);
   }, []);
 
+  const toggleChat = useCallback(() => {
+    setChatMounted(true);
+    setIsOpen((open) => !open);
+  }, []);
+
+  const openChatWithVoice = useCallback(() => {
+    setChatMounted(true);
+    setIsOpen(true);
+    setVoiceRecordingRequestId((requestId) => requestId + 1);
+  }, []);
+
   const addMessagesToChat = useCallback(
     (conversation: ConversationData) => {
       setPendingConversation(conversation);
@@ -62,8 +76,8 @@ const ChatInterface: React.FC<{
   }, []);
 
   useEffect(() => {
-    registerSetters(setSelectedText, openChat, addMessagesToChat);
-  }, [registerSetters, openChat, addMessagesToChat]);
+    registerSetters(setSelectedText, openChat, toggleChat, openChatWithVoice, addMessagesToChat);
+  }, [registerSetters, openChat, toggleChat, openChatWithVoice, addMessagesToChat]);
 
   return (
     <>
@@ -88,6 +102,7 @@ const ChatInterface: React.FC<{
           setSelectedText={setSelectedText}
           pendingConversation={pendingConversation}
           onPendingConversationApplied={() => setPendingConversation(null)}
+          voiceRecordingRequestId={voiceRecordingRequestId}
         />
       )}
     </>

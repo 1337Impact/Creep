@@ -13,7 +13,8 @@ const obj = (
 export const CREEP_FUNCTION_DECLARATIONS: AgentFunctionDeclaration[] = [
   {
     name: "observe_page",
-    description: "Snapshot URL, title, and interactable elements with stable refs.",
+    description:
+      "Snapshot URL, title, capped pageText (plain body text), and interactable elements with stable refs.",
     parametersJsonSchema: obj({}),
   },
   {
@@ -28,6 +29,26 @@ export const CREEP_FUNCTION_DECLARATIONS: AgentFunctionDeclaration[] = [
       { ref: { type: "string" }, text: { type: "string" } },
       ["ref", "text"]
     ),
+  },
+  {
+    name: "input",
+    description:
+      "Type text into an input, textarea, or contenteditable by element id or CSS selector. Works with React/Vue controlled fields.",
+    parametersJsonSchema: obj({
+      text: { type: "string", description: "Text to type into the field." },
+      id: {
+        type: "string",
+        description: "Element id attribute (use this or selector, not both).",
+      },
+      selector: {
+        type: "string",
+        description: "CSS selector for the field (use this or id, not both).",
+      },
+      clear: {
+        type: "boolean",
+        description: "Clear existing value before typing (default true).",
+      },
+    }, ["text"]),
   },
   {
     name: "scroll",
@@ -56,7 +77,7 @@ export const CREEP_FUNCTION_DECLARATIONS: AgentFunctionDeclaration[] = [
   {
     name: "evaluate_js",
     description:
-      "Run JavaScript in the page context and return the result (JSON-serialized). Keep scripts small; return only fields you need.",
+      "Run JavaScript with DOM access and return the result (JSON-serialized). Keep scripts small; use return for the value.",
     parametersJsonSchema: obj(
       {
         script: {

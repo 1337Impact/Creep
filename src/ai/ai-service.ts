@@ -5,7 +5,7 @@ import {
   INLINE_SYSTEM_INSTRUCTION,
   SYSTEM_INSTRUCTION,
 } from "./prompts";
-import { resolveProviderForModel } from "./providers/factory";
+import { getProvider, resolveProviderForModel } from "./providers/factory";
 import {
   DEFAULT_MODEL,
   DEFAULT_TRANSCRIPTION_MODEL,
@@ -17,6 +17,7 @@ import type {
   PromptResult,
   StreamChatOptions,
   ToolConfig,
+  TranscribeAudioOptions,
 } from "./types";
 
 export class AiService {
@@ -104,22 +105,24 @@ export class AiService {
 
   async transcribeAudio(
     audioBase64: string,
-    modelId: string = DEFAULT_TRANSCRIPTION_MODEL
+    modelId: string = DEFAULT_TRANSCRIPTION_MODEL,
+    options?: Omit<TranscribeAudioOptions, "model">
   ): Promise<string> {
-    const provider = resolveProviderForModel(modelId);
+    const provider = getProvider("openai");
+    if (!provider.transcribeAudio) {
+      throw new Error("OpenAI transcription is not available.");
+    }
 
-    return provider.generate({
-      model: modelId,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: "Transcribe the following audio exactly." },
-            { type: "audio", data: audioBase64, mimeType: "audio/wav" },
-          ],
-        },
-      ],
-    });
+    return provider.transcribeAudio(
+      {
+        data: audioBase64,
+        mimeType: "audio/wav",
+      },
+      {
+        ...options,
+        model: modelId,
+      }
+    );
   }
 }
 

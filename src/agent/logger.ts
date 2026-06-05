@@ -50,6 +50,13 @@ export function sanitizeForLog(value: unknown, depth = 0): unknown {
   }
   if (typeof value === "object") {
     const obj = value as Record<string, unknown>;
+    if (typeof obj.pageText === "string" && obj.pageText.length > 200) {
+      const { pageText, ...rest } = obj;
+      return {
+        ...sanitizeRecord(rest, depth + 1),
+        pageText: truncate(pageText, 200),
+      };
+    }
     if (Array.isArray(obj.elements) && obj.elements.length > 0) {
       const { elements, ...rest } = obj;
       return {
@@ -139,11 +146,10 @@ export const agentLog = {
 
   toolResult(step: number, call: ToolCall, result: ToolResult, extra?: Record<string, unknown>) {
     const status = result.ok ? "ok" : "error";
-    const level = result.ok ? "log" : "warn";
     const output = result.ok
       ? result.data
       : { error: result.error ?? "tool_failed" };
-    emit(level, `tool result ← ${call.name} [${status}]`, {
+    emit(result.ok ? "log" : "error", `tool result ← ${call.name} [${status}]`, {
       step,
       callId: call.id,
       name: call.name,

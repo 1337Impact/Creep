@@ -32,5 +32,21 @@
         "src/content.tsx"
       ]
     }
-  ]
+  ],
+  "commands": {
+    "toggle-chat-panel": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "Toggle Creep chat panel"
+    },
+    "open-chat-panel-with-voice": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+U",
+        "mac": "MacCtrl+Shift+U"
+      },
+      "description": "Open Creep chat panel with voice recording"
+    }
+  }
 }

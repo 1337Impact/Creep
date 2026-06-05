@@ -83,8 +83,12 @@ function handleExecuteTool(
   sendResponse: (response: ToolResult) => void
 ): boolean {
   setAgentLogContext({ scope: "content", agentId: message.agentId });
-  executor = createBrowserToolExecutor(document);
-  void executor.execute(message.call).then(sendResponse);
+  void executor.execute(message.call).then(sendResponse).catch((e) =>
+    sendResponse({
+      ok: false,
+      error: e instanceof Error ? e.message : "browser_tool_threw",
+    })
+  );
   return true;
 }
 

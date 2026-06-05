@@ -2,6 +2,7 @@ import type { ProviderId } from "./types";
 
 const ENV_API_KEYS: Partial<Record<ProviderId, string>> = {
   gemini: import.meta.env.VITE_GEMINI_API_KEY || "",
+  openai: import.meta.env.VITE_OPENAI_API_KEY || "",
 };
 
 export const API_TOKEN_STORAGE_KEYS: Record<ProviderId, string> = {

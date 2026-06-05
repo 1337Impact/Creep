@@ -1,7 +1,8 @@
-import { MAX_OBSERVE_ELEMENTS } from "../constants";
+import { MAX_OBSERVE_ELEMENTS, MAX_OBSERVE_PAGE_TEXT_CHARS } from "../constants";
 import { agentLog, setAgentLogContext } from "../logger";
 import type { ToolCall, ToolExecutor, ToolResult } from "../types";
-import { evaluateJsInPage } from "./evaluate-js";
+import { evaluateJsInContent } from "./evaluate-js";
+import { executeInputTool } from "./input";
 
 const EXT_ROOT = "#chrome-ai-helper-host, [data-extension-root]";
 const INTERACTABLE =
@@ -93,9 +94,15 @@ export class BrowserToolExecutor implements ToolExecutor {
       }
 
       this.snapshotUrl = this.doc.location?.href ?? "";
+      const pageText = (this.doc.body?.innerText ?? "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, MAX_OBSERVE_PAGE_TEXT_CHARS);
+
       return ok({
         url: this.snapshotUrl,
         title: this.doc.title ?? "",
+        pageText,
         elements,
       });
     }
@@ -112,9 +119,11 @@ export class BrowserToolExecutor implements ToolExecutor {
     }
 
     if (name === "evaluate_js") {
-      const script = args.script;
-      if (typeof script !== "string") return fail("missing_script");
-      return evaluateJsInPage(this.doc, script);
+      return evaluateJsInContent(args.script, this.doc);
+    }
+
+    if (name === "input") {
+      return executeInputTool(this.doc, args);
     }
 
     if (name === "navigate") {

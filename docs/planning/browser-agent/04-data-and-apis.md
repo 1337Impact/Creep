@@ -43,6 +43,7 @@ Loop helpers (`runAgentLoop`, `runPersisted`) are used by `AgentOrchestrator` in
 | `observe_page` | `{}` | Returns url, title, elements `{ ref, role, name, tag }` |
 | `click` | `ref` | Invalidates snapshot URL on success |
 | `type` | `ref`, `text` | input/textarea only |
+| `input` | `text`, `id` or `selector`, `clear?` | By id or CSS selector; React-friendly typing |
 | `scroll` | `direction`, `amount?` | Default 400px |
 | `navigate` | `url` | http/https only; clears refs; orchestrator waits for new document before next step |
 | `evaluate_js` | `script` | Runs JS in page main world; capped output (~12k chars), 10s timeout |

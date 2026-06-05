@@ -54,6 +54,8 @@ export type {
   ProviderCapabilities,
   ProviderId,
   StreamChatOptions,
+  TranscribeAudioInput,
+  TranscribeAudioOptions,
   ToolConfig,
 } from "./types";
 export {
@@ -63,4 +65,7 @@ export {
 export type { AgentCapableProvider } from "./providers/factory";
 export { resolveAgentProvider } from "./providers/factory";
 
-export { GEMINI_MISSING_TOKEN_ERROR } from "@/constants/messages";
+export {
+  GEMINI_MISSING_TOKEN_ERROR,
+  OPENAI_MISSING_TOKEN_ERROR,
+} from "@/constants/messages";

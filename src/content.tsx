@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import SelectionPopup from './components/SelectionPopup';
 import ChatInterface from './components/ChatInterface';
 import { initAgentBridge } from './content/agent-bridge';
+import { MSG, type ContentRequest } from '@/agent/protocol';
 import type { ConversationData } from '@/types/chat';
 import styles from './input.css?inline';
 
@@ -10,16 +11,22 @@ initAgentBridge();
 
 let globalSetSelectedText: ((text: string) => void) | null = null;
 let globalOpenChat: (() => void) | null = null;
+let globalToggleChat: (() => void) | null = null;
+let globalOpenChatWithVoice: (() => void) | null = null;
 let globalAddMessagesToChat: ((conversation: ConversationData) => void) | null = null;
 
 const App: React.FC = () => {
     const registerSetters = (
         setSelectedText: (text: string) => void,
         openChat: () => void,
+        toggleChat: () => void,
+        openChatWithVoice: () => void,
         addMessagesToChat: (conversation: ConversationData) => void
     ) => {
         globalSetSelectedText = setSelectedText;
         globalOpenChat = openChat;
+        globalToggleChat = toggleChat;
+        globalOpenChatWithVoice = openChatWithVoice;
         globalAddMessagesToChat = addMessagesToChat;
     };
 
@@ -70,3 +77,19 @@ shadowRoot.appendChild(rootContainer);
 
 const root = createRoot(rootContainer);
 root.render(<App />);
+
+chrome.runtime.onMessage.addListener((request: ContentRequest, _sender, sendResponse) => {
+    if (request?.type === MSG.CHAT_TOGGLE) {
+        globalToggleChat?.();
+        sendResponse({ ok: true });
+        return false;
+    }
+
+    if (request?.type === MSG.CHAT_OPEN_VOICE) {
+        globalOpenChatWithVoice?.();
+        sendResponse({ ok: true });
+        return false;
+    }
+
+    return false;
+});

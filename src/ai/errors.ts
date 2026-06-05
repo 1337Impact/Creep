@@ -1,5 +1,6 @@
 import {
   GEMINI_MISSING_TOKEN_UI_MESSAGE,
+  OPENAI_MISSING_TOKEN_UI_MESSAGE,
 } from "@/constants/messages";
 import type { ProviderId } from "./types";
 
@@ -10,6 +11,11 @@ const AUTH_ERROR_MESSAGES: Partial<Record<ProviderId, string>> = {
   gemini: "Authentication failed. Please verify your Gemini API key configuration.",
   openai: "Authentication failed. Please verify your OpenAI API key configuration.",
   anthropic: "Authentication failed. Please verify your Anthropic API key configuration.",
+};
+
+const MISSING_TOKEN_UI_MESSAGES: Partial<Record<ProviderId, string>> = {
+  gemini: GEMINI_MISSING_TOKEN_UI_MESSAGE,
+  openai: OPENAI_MISSING_TOKEN_UI_MESSAGE,
 };
 
 export class AiError extends Error {
@@ -56,9 +62,10 @@ function deriveFriendlyErrorMessage(message: string, provider?: ProviderId): str
 
   if (
     normalized.includes("token is missing") ||
-    normalized.includes("missing token")
+    normalized.includes("missing token") ||
+    normalized.includes("api key is missing")
   ) {
-    return GEMINI_MISSING_TOKEN_UI_MESSAGE;
+    return MISSING_TOKEN_UI_MESSAGES[provider ?? "gemini"] ?? GEMINI_MISSING_TOKEN_UI_MESSAGE;
   }
 
   if (
@@ -99,6 +106,9 @@ export function getReadableAiError(error: unknown, provider?: ProviderId): strin
   if (!error) return DEFAULT_FALLBACK_ERROR;
 
   if (error instanceof AiError) {
+    if (error.code === "agent_not_supported") {
+      return "This model's provider does not support the browser agent yet. Choose a Gemini model for agent tasks, or use OpenAI for chat only.";
+    }
     return deriveFriendlyErrorMessage(error.message, error.provider);
   }
 

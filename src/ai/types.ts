@@ -59,6 +59,16 @@ export interface InlineQuestionOptions {
   enableSearch?: boolean;
 }
 
+export interface TranscribeAudioInput {
+  data: string;
+  mimeType: AudioMimeType;
+}
+
+export interface TranscribeAudioOptions {
+  model?: string;
+  filename?: string;
+}
+
 export function getMessageText(message: Message): string {
   return message.content
     .filter((part): part is Extract<ContentPart, { type: "text" }> => part.type === "text")

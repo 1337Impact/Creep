@@ -419,6 +419,7 @@ export interface SendOptions {
 
 export interface PromptInputBoxHandle {
   focus: () => void;
+  startRecording: () => void;
 }
 
 export interface PromptInputBoxProps {
@@ -471,6 +472,9 @@ export const PromptInputBox = React.forwardRef<PromptInputBoxHandle, PromptInput
 
     React.useImperativeHandle(ref, () => ({
       focus: focusInput,
+      startRecording: () => {
+        if (!isLoading) setIsRecording(true);
+      },
     }));
 
     const handleSubmit = () => {

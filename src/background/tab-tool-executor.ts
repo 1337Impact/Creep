@@ -28,7 +28,16 @@ export class TabToolExecutor implements ToolExecutor {
     setAgentLogContext({ scope: "background", tabId: this.tabId, agentId: this.agentId });
     agentLog.toolDispatch({ tabId: this.tabId, agentId: this.agentId, call });
 
-    const result = await this.executeOnTab(call);
+    let result = await this.executeOnTab(call);
+
+    if (
+      !result.ok &&
+      call.name === "click" &&
+      (result.error === "tool_no_response" || result.error === "tool_tab_unreachable")
+    ) {
+      await this.documentWaiter.waitForPossibleNavigation(this.tabId, 3000);
+      result = { ok: true, data: { clicked: true, navigationLikely: true } };
+    }
 
     if (call.name === "navigate" && result.ok) {
       await this.documentWaiter.waitForDocument(this.tabId, NAVIGATION_WAIT_MS);
@@ -42,21 +51,25 @@ export class TabToolExecutor implements ToolExecutor {
   private executeOnTab(call: ToolCall): Promise<ToolResult> {
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
-        resolve({ ok: false, error: "tool_tab_unreachable" });
+        resolve({ ok: false, error: "tool_tab_timeout" });
       }, TOOL_TAB_TIMEOUT_MS);
 
-      sendToTab<TabToolResponse>(this.tabId, {
-        type: MSG.AGENT_EXECUTE_TOOL,
-        call,
-        agentId: this.agentId,
-      })
+      sendToTab<TabToolResponse>(
+        this.tabId,
+        { type: MSG.AGENT_EXECUTE_TOOL, call, agentId: this.agentId },
+        { frameId: 0 }
+      )
         .then((response) => {
           clearTimeout(timer);
-          resolve(response ?? { ok: false, error: "tool_tab_unreachable" });
+          resolve(response);
         })
-        .catch(() => {
+        .catch((error) => {
           clearTimeout(timer);
-          resolve({ ok: false, error: "tool_tab_unreachable" });
+          const message = error instanceof Error ? error.message : "tool_tab_unreachable";
+          resolve({
+            ok: false,
+            error: message.startsWith("tool_") ? message : "tool_tab_unreachable",
+          });
         });
     });
   }

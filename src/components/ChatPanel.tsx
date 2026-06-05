@@ -17,6 +17,7 @@ import {
   Settings,
 } from "lucide-react";
 import MarkdownPreview from "@uiw/react-markdown-preview";
+import { ModelLoadingDots } from "@/components/ModelLoadingDots";
 import {
   PromptInputBox,
   type PromptInputBoxHandle,
@@ -71,6 +72,7 @@ interface ChatPanelProps {
   setSelectedText: (text: string) => void;
   pendingConversation: ConversationData | null;
   onPendingConversationApplied: () => void;
+  voiceRecordingRequestId: number;
 }
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({
@@ -83,6 +85,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   setSelectedText,
   pendingConversation,
   onPendingConversationApplied,
+  voiceRecordingRequestId,
 }) => {
   const {
     tabs,
@@ -105,7 +108,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   const [selectedModel, setSelectedModel] = useState<ChatModel>(DEFAULT_MODEL);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSessionsOpen, setIsSessionsOpen] = useState(false);
-  const [apiTokenInput, setApiTokenInput] = useState("");
+  const [geminiApiKeyInput, setGeminiApiKeyInput] = useState("");
+  const [openaiApiKeyInput, setOpenaiApiKeyInput] = useState("");
   const [settingsError, setSettingsError] = useState("");
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -218,6 +222,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       promptInputRef.current?.focus();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || voiceRecordingRequestId === 0) return;
+    promptInputRef.current?.startRecording();
+  }, [isOpen, voiceRecordingRequestId]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -539,12 +548,12 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     >
       <div
         className={cn(
-          "w-full h-full bg-gray-900 border-gray-900 border shadow-2xl rounded-xl flex flex-col overflow-visible animate-in slide-in-from-bottom-10 duration-200 transition-colors"
+          "w-full h-full shadow-2xl rounded-b-xl flex flex-col overflow-visible animate-in slide-in-from-bottom-10 duration-200 transition-colors"
         )}
       >
         <div
           className={cn(
-            "bg-gray-950 border-b border-gray-800 text-white p-4 flex justify-between items-center"
+            "bg-gray-950 rounded-t-xl text-white p-4 flex justify-between items-center"
           )}
         >
           <div className="flex items-center gap-2">
@@ -625,7 +634,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             />
             <div
               onClick={() => {
-                setApiTokenInput(resolveApiToken("gemini"));
+                setGeminiApiKeyInput(resolveApiToken("gemini"));
+                setOpenaiApiKeyInput(resolveApiToken("openai"));
                 setSettingsError("");
                 setIsSettingsOpen((prev) => !prev);
                 setIsSessionsOpen(false);
@@ -633,7 +643,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               className={cn(
                 "p-1.5 rounded-md transition-colors cursor-pointer hover:bg-gray-700 text-gray-400 hover:text-white"
               )}
-              title="Gemini API Settings"
+              title="API key settings"
               role="button"
             >
               <Settings className="w-4 h-4" />
@@ -642,41 +652,73 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         </div>
 
         {isSettingsOpen && (
-          <div className="border-b border-gray-700 bg-gray-800 px-3 py-3">
+          <div className="border-b border-gray-700 bg-gray-800 px-3 py-3 space-y-3">
             <div className="flex items-center gap-2">
               <input
                 type="password"
-                value={apiTokenInput}
+                value={geminiApiKeyInput}
                 onChange={(e) => {
-                  setApiTokenInput(e.target.value);
+                  setGeminiApiKeyInput(e.target.value);
                   if (settingsError) setSettingsError("");
                 }}
-                placeholder="Paste Gemini API token"
+                placeholder="Gemini API key"
+                aria-label="Gemini API key"
                 className={cn(
-                  "flex-1 bg-gray-900 border border-gray-600 text-gray-100 text-xs rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  "flex-1 min-w-0 bg-gray-900 border border-gray-600 text-gray-100 text-xs rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 )}
               />
               <button
                 type="button"
                 onClick={() => {
-                  const trimmedToken = apiTokenInput.trim();
-                  if (!trimmedToken) {
-                    setSettingsError("Token cannot be empty.");
+                  const trimmed = geminiApiKeyInput.trim();
+                  if (!trimmed) {
+                    setSettingsError("Gemini API key cannot be empty.");
                     return;
                   }
-                  persistApiToken("gemini", trimmedToken);
+                  persistApiToken("gemini", trimmed);
                   setSettingsError("");
-                  setIsSettingsOpen(false);
                 }}
                 className={cn(
-                  "px-3 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-colors"
+                  "shrink-0 px-3 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-colors whitespace-nowrap"
                 )}
               >
-                Submit
+                Save Gemini Key
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="password"
+                value={openaiApiKeyInput}
+                onChange={(e) => {
+                  setOpenaiApiKeyInput(e.target.value);
+                  if (settingsError) setSettingsError("");
+                }}
+                placeholder="OpenAI API key"
+                aria-label="OpenAI API key"
+                className={cn(
+                  "flex-1 min-w-0 bg-gray-900 border border-gray-600 text-gray-100 text-xs rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                )}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const trimmed = openaiApiKeyInput.trim();
+                  if (!trimmed) {
+                    setSettingsError("OpenAI API key cannot be empty.");
+                    return;
+                  }
+                  persistApiToken("openai", trimmed);
+                  setSettingsError("");
+                }}
+                className={cn(
+                  "shrink-0 px-3 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-colors whitespace-nowrap"
+                )}
+              >
+                Save OpenAI Key
               </button>
             </div>
             {settingsError && (
-              <p className="mt-2 text-xs text-red-400">{settingsError}</p>
+              <p className="text-xs text-red-400">{settingsError}</p>
             )}
           </div>
         )}
@@ -700,13 +742,17 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               )}
             >
               {msg.role === "model" ? (
-                <MarkdownPreview
-                  source={msg.text}
-                  wrapperElement={{
-                    "data-color-mode": "dark",
-                  }}
-                  style={{ backgroundColor: "transparent", color: "inherit" }}
-                />
+                msg.text.trim() ? (
+                  <MarkdownPreview
+                    source={msg.text}
+                    wrapperElement={{
+                      "data-color-mode": "dark",
+                    }}
+                    style={{ backgroundColor: "transparent", color: "inherit" }}
+                  />
+                ) : (
+                  <ModelLoadingDots />
+                )
               ) : msg.role === "agent" ? (
                 <AgentMessageBubble message={msg} />
               ) : (
@@ -718,13 +764,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
         <div
           className={cn(
-            "relative z-10 p-4 bg-gray-900 border-t border-gray-800 space-y-3 overflow-visible"
+            "relative z-10 px-4 py-2 rounded-b-xl bg-gray-900 border-t border-gray-800 overflow-visible"
           )}
         >
           {selectedText && (
             <div
               className={cn(
-                "flex items-center gap-2 px-3 py-2 border rounded-lg text-xs bg-purple-900/20 border-purple-800 text-purple-300"
+                "flex items-center gap-2 px-3 mb-1 py-2 border rounded-lg text-xs bg-purple-900/20 border-purple-800 text-purple-300"
               )}
             >
               <MessageCirclePlus className="w-3 h-3 shrink-0" />

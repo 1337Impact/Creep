@@ -12,6 +12,8 @@ export const MSG = {
   AGENT_EVENT: "AGENT_EVENT",
   AGENT_STARTED: "AGENT_STARTED",
   AGENT_KEEPALIVE: "AGENT_KEEPALIVE",
+  CHAT_TOGGLE: "CHAT_TOGGLE",
+  CHAT_OPEN_VOICE: "CHAT_OPEN_VOICE",
 } as const;
 
 export type AgentRunPhase = "running" | "awaiting_document" | "idle";
@@ -70,6 +72,14 @@ export interface CaptureScreenshotPayload {
   type: typeof MSG.CAPTURE_SCREENSHOT;
 }
 
+export interface ChatTogglePayload {
+  type: typeof MSG.CHAT_TOGGLE;
+}
+
+export interface ChatOpenVoicePayload {
+  type: typeof MSG.CHAT_OPEN_VOICE;
+}
+
 export type BackgroundRequest =
   | AgentStartPayload
   | AgentCancelPayload
@@ -94,7 +104,11 @@ export type BackgroundResponse =
   | { error: string }
   | { ok: true };
 
-export type ContentRequest = AgentExecuteToolPayload | AgentEventPayload;
+export type ContentRequest =
+  | AgentExecuteToolPayload
+  | AgentEventPayload
+  | ChatTogglePayload
+  | ChatOpenVoicePayload;
 
 const RUNTIME_ERROR = "Extension runtime unavailable";
 
@@ -118,16 +132,26 @@ export function sendToRuntime<T extends BackgroundResponse>(
 
 export function sendToTab<T>(
   tabId: number,
-  message: ContentRequest | AgentExecuteToolPayload
+  message: ContentRequest | AgentExecuteToolPayload,
+  options?: { frameId?: number }
 ): Promise<T> {
   return new Promise((resolve, reject) => {
-    chrome.tabs.sendMessage(tabId, message, (response: T | undefined) => {
+    const onResponse = (response: T | undefined) => {
       if (chrome.runtime.lastError) {
         reject(new Error(chrome.runtime.lastError.message || "Tab unreachable"));
         return;
       }
-      resolve(response as T);
-    });
+      if (response === undefined) {
+        reject(new Error("tool_no_response"));
+        return;
+      }
+      resolve(response);
+    };
+    if (options?.frameId != null) {
+      chrome.tabs.sendMessage(tabId, message, { frameId: options.frameId }, onResponse);
+    } else {
+      chrome.tabs.sendMessage(tabId, message, onResponse);
+    }
   });
 }
 

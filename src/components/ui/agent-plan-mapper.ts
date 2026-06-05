@@ -4,13 +4,21 @@ import type { AgentPlanStatus, AgentPlanTask } from "./agent-plan-types";
 function formatToolArgs(name: string, args: Record<string, unknown>): string {
   switch (name) {
     case "observe_page":
-      return "Snapshot URL, title, and interactable elements";
+      return "Snapshot URL, title, page text, and interactable elements";
     case "click":
       return typeof args.ref === "string" ? `Click element ${args.ref}` : "Click element";
     case "type":
       return typeof args.ref === "string"
         ? `Type into ${args.ref}${typeof args.text === "string" ? `: "${args.text}"` : ""}`
         : "Type text into input";
+    case "input":
+      if (typeof args.id === "string") {
+        return `Input into #${args.id}${typeof args.text === "string" ? `: "${args.text}"` : ""}`;
+      }
+      if (typeof args.selector === "string") {
+        return `Input into ${args.selector}${typeof args.text === "string" ? `: "${args.text}"` : ""}`;
+      }
+      return typeof args.text === "string" ? `Input: "${args.text}"` : "Input text into field";
     case "scroll":
       return `Scroll ${typeof args.direction === "string" ? args.direction : "down"}${
         typeof args.amount === "number" ? ` (${args.amount}px)` : ""

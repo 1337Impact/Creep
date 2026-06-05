@@ -70,4 +70,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return routeMessage(request as BackgroundRequest, sender, sendResponse);
 });
 
+chrome.commands.onCommand.addListener((command) => {
+  const message =
+    command === "toggle-chat-panel"
+      ? { type: MSG.CHAT_TOGGLE }
+      : command === "open-chat-panel-with-voice"
+        ? { type: MSG.CHAT_OPEN_VOICE }
+        : null;
+
+  if (!message) return;
+
+  chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+    if (!tab?.id) return;
+
+    chrome.tabs.sendMessage(tab.id, message, () => {
+      // Some browser pages do not allow content scripts; there is nothing to toggle there.
+      void chrome.runtime.lastError;
+    });
+  });
+});
+
 chrome.runtime.onConnect.addListener(handleKeepaliveConnect);
