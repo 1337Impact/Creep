@@ -52,7 +52,7 @@ export const FloatingOwlButton: React.FC<FloatingOwlButtonProps> = ({
       }}
       style={buttonStyle}
       className={cn(
-        "z-[9999] group bg-black text-white border p-[12px] hover:translate-x-0 transition-transform duration-300 shadow-lg flex items-center gap-2 font-sans group",
+        "z-[9999] group bg-muted text-foreground border border-secondary p-[12px] hover:translate-x-0 transition-transform duration-300 shadow-lg flex items-center gap-2 font-sans group",
         buttonClasses
       )}
       role="button"

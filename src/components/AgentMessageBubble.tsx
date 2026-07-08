@@ -19,7 +19,7 @@ export function AgentMessageBubble({ message }: AgentMessageBubbleProps) {
       {tasks.length > 0 && <AgentPlan tasks={tasks} />}
 
       {isRunning && (
-        <div className="flex items-center gap-2 text-xs text-gray-400">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
           <span>
             {events.length === 0 ? "Starting agent run…" : "Running tools…"}
@@ -39,7 +39,7 @@ export function AgentMessageBubble({ message }: AgentMessageBubbleProps) {
       )}
 
       {message.status === "done" && message.toolCallCount != null && message.toolCallCount > 0 && (
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-muted-foreground">
           {message.toolCallCount} tool{message.toolCallCount === 1 ? "" : "s"} used
         </p>
       )}

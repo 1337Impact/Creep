@@ -56,7 +56,7 @@ document.body.appendChild(host);
 
 const shadowRoot = host.attachShadow({ mode: 'open' });
 
-// Inject Styles
+// Inject styles into the shadow root (must be first so :host variables apply before paint)
 const styleElement = document.createElement('style');
 styleElement.textContent = styles;
 shadowRoot.appendChild(styleElement);

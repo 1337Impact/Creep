@@ -146,22 +146,22 @@ const SelectionPopup: React.FC<SelectionPopupProps> = ({
         top: `${position.y}px`,
         transform: 'translateX(-50%)',
       }}
-      className="fixed z-[10001] flex items-center bg-black rounded-xl shadow-lg px-1 py-1 gap-[2px] font-sans"
+      className="fixed z-[10001] flex items-center bg-muted rounded-xl shadow-lg px-1 py-1 gap-[2px] font-sans"
     >
       <div
         onClick={() => setIsExpanded(true)}
-        className="flex items-center gap-1.5 bg-transparent text-white px-2.5 py-1.5 cursor-pointer text-[13px] font-medium rounded-lg transition-colors hover:bg-neutral-800"
+        className="flex items-center gap-1.5 bg-transparent text-foreground px-2.5 py-1.5 cursor-pointer text-[13px] font-medium rounded-lg transition-colors hover:bg-secondary"
         role="button"
       >
         <Sparkles size={14} />
         <span>Ask AI</span>
       </div>
 
-      <div className="w-px h-4 bg-neutral-800 mx-[2px]" />
+      <div className="w-px h-4 bg-secondary mx-[2px]" />
 
       <div
         onClick={() => handleAddToChat()}
-        className="flex items-center justify-center bg-transparent text-gray-300 px-2 py-1.5 cursor-pointer rounded-lg transition-all hover:bg-neutral-800 hover:text-white"
+        className="flex items-center justify-center bg-transparent text-muted-foreground px-2 py-1.5 cursor-pointer rounded-lg transition-all hover:bg-secondary hover:text-foreground"
         title="Add to Chat"
         role="button"
       >

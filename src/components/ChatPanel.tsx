@@ -592,7 +592,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     left: buttonPosition.side === "left" ? "16px" : "auto",
     right: buttonPosition.side === "right" ? "16px" : "auto",
     zIndex: 9999,
-    border: "1px solid rgba(255, 255, 255, 0.2)",
     borderRadius: "12px",
   };
 
@@ -633,16 +632,16 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         bottomLeft: false,
       }}
       style={chatContainerStyle}
-      className="font-sans"
+      className="font-sans border border-foreground/20"
     >
       <div
         className={cn(
-          "w-full h-full shadow-2xl rounded-b-xl flex flex-col overflow-visible animate-in slide-in-from-bottom-10 duration-200 transition-colors"
+          "w-full h-full shadow-2xl flex flex-col overflow-visible animate-in slide-in-from-bottom-10 duration-200 transition-colors"
         )}
       >
         <div
           className={cn(
-            "bg-gray-950 rounded-t-xl text-white p-4 flex justify-between items-center"
+            "bg-muted rounded-t-xl text-foreground p-4 flex justify-between items-center"
           )}
         >
           <div className="flex items-center gap-2">
@@ -651,7 +650,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           </div>
           <div
             onClick={onClose}
-            className="hover:text-gray-300 transition-colors cursor-pointer"
+            className="hover:text-muted-foreground transition-colors cursor-pointer"
             role="button"
           >
             <X className="w-5 h-5" />
@@ -660,7 +659,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
         <div
           className={cn(
-            "relative z-30 shrink-0 bg-gray-800 border-gray-700 flex items-center px-2 py-2 gap-1 border-b overflow-visible"
+            "relative z-30 shrink-0 bg-secondary border-secondary flex items-center px-2 py-2 gap-1 border-b overflow-visible"
           )}
         >
           <div
@@ -675,8 +674,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               className={cn(
                 "flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors min-w-[80px] justify-between group cursor-pointer",
                 activeTabId === tab.id
-                  ? "bg-gray-700 text-white shadow-sm"
-                  : "text-gray-400 hover:bg-gray-700 hover:text-white"
+                  ? "bg-secondary text-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               )}
               role="button"
             >
@@ -685,7 +684,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 <span
                   onClick={(e) => handleCloseTab(e, tab.id)}
                   className={cn(
-                    "opacity-0 group-hover:opacity-100 rounded p-0.5 transition-all hover:bg-gray-600"
+                    "opacity-0 group-hover:opacity-100 rounded p-0.5 transition-all hover:bg-accent"
                   )}
                 >
                   <X className="w-3 h-3" />
@@ -697,7 +696,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             <div
               onClick={addTab}
               className={cn(
-                "p-1.5 rounded-md transition-colors cursor-pointer hover:bg-gray-700 text-gray-400"
+                "p-1.5 rounded-md transition-colors cursor-pointer hover:bg-secondary text-muted-foreground"
               )}
               title="New Chat"
               role="button"
@@ -730,7 +729,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 setIsSessionsOpen(false);
               }}
               className={cn(
-                "p-1.5 rounded-md transition-colors cursor-pointer hover:bg-gray-700 text-gray-400 hover:text-white"
+                "p-1.5 rounded-md transition-colors cursor-pointer hover:bg-secondary text-muted-foreground hover:text-foreground"
               )}
               title="API key settings"
               role="button"
@@ -741,7 +740,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         </div>
 
         {isSettingsOpen && (
-          <div className="border-b border-gray-700 bg-gray-800 px-3 py-3 space-y-3">
+          <div className="border-b border-secondary bg-secondary px-3 py-3 space-y-3">
             <div className="flex items-center gap-2">
               <input
                 type="password"
@@ -753,7 +752,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 placeholder="Gemini API key"
                 aria-label="Gemini API key"
                 className={cn(
-                  "flex-1 min-w-0 bg-gray-900 border border-gray-600 text-gray-100 text-xs rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  "flex-1 min-w-0 bg-background border border-secondary text-foreground text-xs rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 )}
               />
               <button
@@ -768,7 +767,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                   setSettingsError("");
                 }}
                 className={cn(
-                  "shrink-0 px-3 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-colors whitespace-nowrap"
+                  "shrink-0 px-3 py-2 rounded-md bg-primary hover:bg-primary/90 text-white text-xs font-medium transition-colors whitespace-nowrap"
                 )}
               >
                 Save Gemini Key
@@ -785,7 +784,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 placeholder="OpenAI API key"
                 aria-label="OpenAI API key"
                 className={cn(
-                  "flex-1 min-w-0 bg-gray-900 border border-gray-600 text-gray-100 text-xs rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  "flex-1 min-w-0 bg-background border border-secondary text-foreground text-xs rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 )}
               />
               <button
@@ -800,7 +799,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                   setSettingsError("");
                 }}
                 className={cn(
-                  "shrink-0 px-3 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-colors whitespace-nowrap"
+                  "shrink-0 px-3 py-2 rounded-md bg-primary hover:bg-primary/90 text-white text-xs font-medium transition-colors whitespace-nowrap"
                 )}
               >
                 Save OpenAI Key
@@ -815,7 +814,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         <div
           ref={messagesContainerRef}
           className={cn(
-            "relative z-0 flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 space-y-4 bg-gray-900 rounded-b-xl"
+            "relative z-0 flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 space-y-4 bg-background"
           )}
         >
           {messages.map((msg, idx) => (
@@ -824,10 +823,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               className={cn(
                 "p-3 rounded-2xl w-fit max-w-[85%] text-sm shadow-sm",
                 msg.role === "user"
-                  ? "bg-blue-600 text-white self-end ml-auto rounded-br-none"
+                  ? "bg-primary text-white self-end ml-auto rounded-br-none"
                   : msg.role === "agent"
-                    ? "bg-gray-800 border border-amber-700/40 text-gray-100 mr-auto rounded-bl-none w-full max-w-full"
-                    : "bg-gray-800 border border-gray-700 text-gray-100 mr-auto rounded-bl-none"
+                    ? "bg-secondary border border-primary/40 text-foreground mr-auto rounded-bl-none w-full max-w-full"
+                    : "bg-secondary border border-secondary text-foreground mr-auto rounded-bl-none"
               )}
             >
               {msg.role === "model" ? (
@@ -853,13 +852,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
         <div
           className={cn(
-            "relative z-10 px-4 py-2 rounded-b-xl bg-gray-900 border-t border-gray-800 overflow-visible"
+            "relative z-10 px-4 py-2 rounded-b-xl bg-background border-t border-secondary overflow-visible"
           )}
         >
           {selectedText && (
             <div
               className={cn(
-                "flex items-center gap-2 px-3 mb-1 py-2 border rounded-lg text-xs bg-purple-900/20 border-purple-800 text-purple-300"
+                "flex items-center gap-2 px-3 mb-1 py-2 border rounded-lg text-xs bg-primary/15 border-primary/40 text-muted-foreground"
               )}
             >
               <MessageCirclePlus className="w-3 h-3 shrink-0" />
@@ -869,7 +868,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               <div
                 onClick={() => setSelectedText("")}
                 className={cn(
-                  "rounded p-0.5 cursor-pointer hover:bg-purple-900/40"
+                  "rounded p-0.5 cursor-pointer hover:bg-primary/25"
                 )}
                 role="button"
               >

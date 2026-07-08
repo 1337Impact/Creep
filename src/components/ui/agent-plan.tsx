@@ -34,13 +34,13 @@ function StatusIcon({
     case "completed":
       return <CheckCircle2 className={cn(className, "text-green-500")} />;
     case "in-progress":
-      return <CircleDotDashed className={cn(className, "text-blue-400")} />;
+      return <CircleDotDashed className={cn(className, "text-primary")} />;
     case "need-help":
       return <CircleAlert className={cn(className, "text-yellow-500")} />;
     case "failed":
       return <CircleX className={cn(className, "text-red-500")} />;
     default:
-      return <Circle className={cn(className, "text-gray-500")} />;
+      return <Circle className={cn(className, "text-muted-foreground")} />;
   }
 }
 
@@ -49,13 +49,13 @@ function statusBadgeClass(status: AgentPlanStatus): string {
     case "completed":
       return "bg-green-900/40 text-green-400";
     case "in-progress":
-      return "bg-blue-900/40 text-blue-300";
+      return "bg-primary/15 text-primary";
     case "need-help":
       return "bg-yellow-900/40 text-yellow-400";
     case "failed":
       return "bg-red-900/40 text-red-400";
     default:
-      return "bg-gray-700 text-gray-400";
+      return "bg-secondary text-muted-foreground";
   }
 }
 
@@ -154,9 +154,9 @@ export function AgentPlan({
   };
 
   return (
-    <div className={cn("text-gray-100 h-full overflow-auto", className)}>
+    <div className={cn("text-foreground h-full overflow-auto", className)}>
       <motion.div
-        className="bg-gray-800 border border-gray-700 rounded-lg shadow overflow-hidden"
+        className="bg-secondary border border-secondary rounded-lg shadow overflow-hidden"
         initial={{ opacity: 0, y: 10 }}
         animate={{
           opacity: 1,
@@ -206,13 +206,13 @@ export function AgentPlan({
                           <span
                             className={cn(
                               "text-sm block truncate",
-                              isCompleted && "text-gray-500 line-through"
+                              isCompleted && "text-muted-foreground line-through"
                             )}
                           >
                             {task.title}
                           </span>
                           {task.description && !isExpanded && (
-                            <span className="text-xs text-gray-500 truncate block">
+                            <span className="text-xs text-muted-foreground truncate block">
                               {task.description}
                             </span>
                           )}
@@ -239,7 +239,7 @@ export function AgentPlan({
                           exit="exit"
                           layout
                         >
-                          <div className="absolute top-0 bottom-0 left-[18px] border-l-2 border-dashed border-gray-600/50" />
+                          <div className="absolute top-0 bottom-0 left-[18px] border-l-2 border-dashed border-accent/50" />
                           <ul className="mt-1 mr-1 mb-1.5 ml-2 space-y-0.5">
                             {task.subtasks.map((subtask) => {
                               const subtaskKey = `${task.id}-${subtask.id}`;
@@ -272,7 +272,7 @@ export function AgentPlan({
                                       className={cn(
                                         "text-xs",
                                         subtask.status === "completed" &&
-                                          "text-gray-500 line-through"
+                                          "text-muted-foreground line-through"
                                       )}
                                     >
                                       {subtask.title}
@@ -282,7 +282,7 @@ export function AgentPlan({
                                   <AnimatePresence mode="wait">
                                     {isSubtaskExpanded && (
                                       <motion.div
-                                        className="text-gray-400 border-gray-600 mt-1 ml-1.5 border-l border-dashed pl-4 text-xs overflow-hidden"
+                                        className="text-muted-foreground border-accent mt-1 ml-1.5 border-l border-dashed pl-4 text-xs overflow-hidden"
                                         variants={subtaskDetailsVariants}
                                         initial="hidden"
                                         animate="visible"
@@ -292,14 +292,14 @@ export function AgentPlan({
                                         <p className="py-1">{subtask.description}</p>
                                         {subtask.tools && subtask.tools.length > 0 && (
                                           <div className="mt-0.5 mb-1 flex flex-wrap items-center gap-1.5">
-                                            <span className="text-gray-500 font-medium">
+                                            <span className="text-muted-foreground font-medium">
                                               Tools:
                                             </span>
                                             <div className="flex flex-wrap gap-1">
                                               {subtask.tools.map((tool) => (
                                                 <span
                                                   key={tool}
-                                                  className="bg-gray-700/60 text-gray-300 rounded px-1.5 py-0.5 text-[10px] font-medium"
+                                                  className="bg-accent/60 text-accent-foreground rounded px-1.5 py-0.5 text-[10px] font-medium"
                                                 >
                                                   {tool}
                                                 </span>
