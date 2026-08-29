@@ -58,13 +58,24 @@ Then load the `dist` folder in Chrome as described above. Changes will auto-relo
 - **Google Search**: Enable grounding with real-time search results
 - **Multiple Models**: Choose between Gemini Flash Lite, Flash, or Pro
 
+## Planning docs
+
+- [Browser agent](docs/planning/browser-agent/index.md) — tool loop, DOM tools, run storage, APIs (backend implemented)
+- [Multi-provider AI](docs/planning/multi-provider-ai/index.md) — chat provider architecture and `AiService`
+
 ## Architecture
 
 - `src/content.tsx`: Main content script injected into web pages
+- `src/agent/`: Browser agent loop, tools, and `agent_run_*` persistence (see planning doc above)
 - `src/components/ChatInterface.tsx`: Main chat UI
 - `src/components/ExpandedSelectionPopup.tsx`: Text selection popup
 - `src/api/gemini.ts`: Gemini API integration
 - `src/background.ts`: Service worker for screenshots
+- `src/hooks/useChatTabs.ts`: Chat tab lifecycle and active-tab state
+- `src/hooks/useChatPersistence.ts`: Host-scoped chat persistence/migration
+- `src/hooks/useFloatingButton.ts`: Floating launcher drag/snap behavior
+- `src/hooks/useSelectionAnchor.ts`: Shared text-selection anchoring logic
+- `src/state/chatUpdates.ts`: Pure tab/message/history update helpers
 
 ## Troubleshooting
 

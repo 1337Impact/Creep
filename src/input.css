@@ -1,4 +1,53 @@
+/* Theme variables use :host — extension UI lives in a shadow root. */
+:host {
+  /* PromptInputBox dark palette (default) */
+  --background: 220 6% 13%; /* #1F2023 */
+  --foreground: 220 14% 96%; /* gray-100 #f3f4f6 */
+  --primary: 217 91% 60%; /* #3B82F6 */
+  --secondary: 0 0% 27%; /* #444444 */
+  --muted: 220 6% 13%; /* #1F2023 panel */
+  --muted-foreground: 218 11% 65%; /* #9CA3AF */
+  --accent: 240 5% 24%; /* #3A3A40 hover */
+  --accent-foreground: 220 13% 83%; /* #D1D5DB */
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :host {
+    --background: 0 0% 100%;
+    --foreground: 224 71% 4%;
+    --primary: 217 91% 60%;
+    --secondary: 0 0% 80%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    color-scheme: light;
+  }
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+*:focus-visible {
+  outline-offset: 0 !important;
+  --ring-offset: 0 !important;
+}
+
+textarea::-webkit-scrollbar {
+  width: 6px;
+}
+
+textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+textarea::-webkit-scrollbar-thumb {
+  background-color: #444444;
+  border-radius: 3px;
+}
+
+textarea::-webkit-scrollbar-thumb:hover {
+  background-color: #555555;
+}
