@@ -1,4 +1,4 @@
-export type ProviderId = "gemini" | "openai" | "anthropic";
+export type ProviderId = "gemini" | "openai" | "anthropic" | "cursor";
 
 export type MessageRole = "user" | "assistant";
 

@@ -49,6 +49,11 @@ Thumbs.db
 *.swo
 *~
 
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
 # Temporary files
 *.tmp
 *.temp

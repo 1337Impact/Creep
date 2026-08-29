@@ -1,4 +1,5 @@
 import type { Message } from "@/ai/types";
+import type { AgentEvent } from "@/agent/types";
 
 export interface ConversationData {
   userMessage: string;
@@ -14,6 +15,13 @@ export type ChatMessageView =
       status: "running" | "done" | "error";
       text?: string;
       toolCallCount?: number;
+    }
+  | {
+      role: "cursor";
+      status: "running" | "done" | "error";
+      text?: string;
+      /** Tool-call timeline, reusing the agent event shape for rendering. */
+      events: AgentEvent[];
     };
 
 export interface ChatTab {
@@ -50,3 +58,4 @@ export interface ChatModel {
 }
 
 export type AgentChatMessage = Extract<ChatMessageView, { role: "agent" }>;
+export type CursorChatMessage = Extract<ChatMessageView, { role: "cursor" }>;

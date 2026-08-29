@@ -9,6 +9,8 @@ export const API_TOKEN_STORAGE_KEYS: Record<ProviderId, string> = {
   gemini: "creep_gemini_api_token",
   openai: "creep_openai_api_token",
   anthropic: "creep_anthropic_api_token",
+  // Cursor auth lives on the bridge server (CURSOR_API_KEY); unused here.
+  cursor: "creep_cursor_api_token",
 };
 
 /** @deprecated Use API_TOKEN_STORAGE_KEYS.gemini */

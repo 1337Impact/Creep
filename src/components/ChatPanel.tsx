@@ -47,9 +47,14 @@ import {
   finalizeAgentMessage,
   setTabHistory,
   startAgentMessage,
+  startCursorMessage,
   startStreamingModelMessage,
+  updateCursorMessage,
   updateTabById,
 } from "@/state/chatUpdates";
+import { streamCursorAgent } from "@/ai/cursor/cursor-client";
+import { CursorMessageBubble } from "@/components/CursorMessageBubble";
+import type { AgentEvent } from "@/agent/types";
 import { getAgentRun } from "@/agent/persistence";
 import type { ChatTab, ConversationData, ChatModel } from "@/types/chat";
 import { MSG, sendToRuntime } from "@/agent/protocol";
@@ -117,8 +122,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const agentTaskRef = useRef<string>("");
   const keepaliveCloseRef = useRef<(() => void) | null>(null);
-  const activeOperationRef = useRef<"chat" | "agent" | null>(null);
+  const activeOperationRef = useRef<"chat" | "agent" | "cursor" | null>(null);
   const chatAbortRef = useRef(false);
+  const cursorAbortRef = useRef<AbortController | null>(null);
 
   const { startRun, openKeepalive } = useAgentRunEvents({
     onStarted: (agentId) => {
@@ -278,6 +284,114 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     return text;
   }
 
+  const handleCursorSend = async (text: string, pageContent?: string) => {
+    if (!activeTab) return;
+
+    const capturedSelectedText = selectedText;
+    const prepared = aiService.prepareChatPrompt(
+      text,
+      capturedSelectedText,
+      pageContent
+    );
+
+    setTabs((prev) =>
+      updateTabById(prev, activeTabId, (tab) =>
+        appendUserMessage(tab, prepared.displayText)
+      )
+    );
+    setSelectedText("");
+    setIsLoading(true);
+    activeOperationRef.current = "cursor";
+
+    const controller = new AbortController();
+    cursorAbortRef.current = controller;
+
+    setTabs((prev) =>
+      updateTabById(prev, activeTabId, (tab) => startCursorMessage(tab))
+    );
+
+    const events: AgentEvent[] = [];
+    let textAccum = "";
+    let step = 0;
+
+    const flush = (patch: Partial<{ text: string; status: "running" | "done" | "error"; events: AgentEvent[] }>) => {
+      setTabs((prev) =>
+        updateTabById(prev, activeTabId, (tab) => {
+          const idx = tab.messages.findIndex(
+            (m) => m.role === "cursor" && m.status === "running"
+          );
+          if (idx < 0) return tab;
+          return updateCursorMessage(tab, idx, patch);
+        })
+      );
+    };
+
+    try {
+      const stream = streamCursorAgent({
+        prompt: prepared.fullPrompt,
+        model: selectedModel.id,
+        conversationId: activeTabId,
+        signal: controller.signal,
+      });
+
+      for await (const event of stream) {
+        if (controller.signal.aborted) break;
+
+        if (event.type === "text") {
+          textAccum += event.text;
+          flush({ text: textAccum });
+        } else if (event.type === "tool_call") {
+          events.push({
+            type: "tool_call",
+            call: { id: event.id, name: event.name, args: event.args },
+            step: step++,
+          });
+          flush({ events: [...events] });
+        } else if (event.type === "tool_result") {
+          events.push({
+            type: "tool_result",
+            callId: event.id,
+            name: event.name,
+            ok: event.ok,
+            result: event.result,
+            step,
+          });
+          flush({ events: [...events] });
+        } else if (event.type === "done") {
+          const summary = textAccum.trim() || event.summary || "Done.";
+          flush({ text: summary, status: "done" });
+          setTabs((prev) =>
+            updateTabById(prev, activeTabId, (tab) =>
+              appendAgentHistory(tab, prepared.fullPrompt, summary)
+            )
+          );
+        } else if (event.type === "error") {
+          flush({ text: event.message, status: "error" });
+        }
+      }
+    } catch (error: unknown) {
+      if (!controller.signal.aborted) {
+        const message =
+          error instanceof TypeError
+            ? `Couldn't reach the Cursor bridge server. Make sure it's running (see server/README.md).`
+            : error instanceof Error
+              ? error.message
+              : getReadableAiError(error, "cursor");
+        flush({ text: message, status: "error" });
+      }
+    } finally {
+      // Safety net: if the stream ended without a done/error event, don't leave
+      // the message spinning forever.
+      flush({ text: textAccum.trim() || "Done.", status: "done" });
+      cursorAbortRef.current = null;
+      if (activeOperationRef.current === "cursor") {
+        activeOperationRef.current = null;
+      }
+      setIsLoading(false);
+      promptInputRef.current?.focus();
+    }
+  };
+
   const handleAgentSend = async (text: string) => {
     if (!activeTab) return;
 
@@ -388,6 +502,24 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       return;
     }
 
+    if (activeOperationRef.current === "cursor" || cursorAbortRef.current) {
+      cursorAbortRef.current?.abort();
+      cursorAbortRef.current = null;
+      setTabs((prev) =>
+        updateTabById(prev, activeTabId, (tab) => {
+          const idx = tab.messages.findIndex(
+            (m) => m.role === "cursor" && m.status === "running"
+          );
+          if (idx < 0) return tab;
+          return updateCursorMessage(tab, idx, { status: "error", text: "Stopped." });
+        })
+      );
+      activeOperationRef.current = null;
+      setIsLoading(false);
+      promptInputRef.current?.focus();
+      return;
+    }
+
     chatAbortRef.current = true;
     activeOperationRef.current = null;
     setIsLoading(false);
@@ -399,6 +531,15 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
     const text = (messageOverride ?? "").trim();
     const enableSearch = options?.enableSearch ?? false;
+
+    if (getProviderForModel(selectedModel.id) === "cursor") {
+      if (!text && !selectedText && !options?.attachPageContent) return;
+      const pageContent = options?.attachPageContent
+        ? extractPageContent()
+        : undefined;
+      await handleCursorSend(text, pageContent);
+      return;
+    }
 
     if (options?.agentMode) {
       if (!text) return;
@@ -824,7 +965,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 "p-3 rounded-2xl w-fit max-w-[85%] text-sm shadow-sm",
                 msg.role === "user"
                   ? "bg-primary text-white self-end ml-auto rounded-br-none"
-                  : msg.role === "agent"
+                  : msg.role === "agent" || msg.role === "cursor"
                     ? "bg-secondary border border-primary/40 text-foreground mr-auto rounded-bl-none w-full max-w-full"
                     : "bg-secondary border border-secondary text-foreground mr-auto rounded-bl-none"
               )}
@@ -843,6 +984,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 )
               ) : msg.role === "agent" ? (
                 <AgentMessageBubble message={msg} />
+              ) : msg.role === "cursor" ? (
+                <CursorMessageBubble message={msg} />
               ) : (
                 msg.text
               )}

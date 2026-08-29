@@ -28,6 +28,19 @@ export function normalizeChatMessage(
     return message;
   }
 
+  if (message.role === "cursor") {
+    // Cursor runs live entirely in the content script; a "running" message on
+    // reload means the run was interrupted and cannot be resumed.
+    if (message.status === "running") {
+      return {
+        ...message,
+        status: "error" as const,
+        text: message.text || STALE_AGENT_RUN_MESSAGE,
+      };
+    }
+    return message;
+  }
+
   const slim = {
     role: "agent" as const,
     agentId: message.agentId,

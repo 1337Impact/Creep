@@ -14,6 +14,13 @@ const OPENAI_CAPABILITIES: ProviderCapabilities = {
   webSearch: false,
 };
 
+const CURSOR_CAPABILITIES: ProviderCapabilities = {
+  streaming: true,
+  vision: false,
+  audioInput: false,
+  webSearch: false,
+};
+
 export const AI_MODELS: AiModel[] = [
   {
     id: "models/gemini-flash-lite-latest",
@@ -44,6 +51,12 @@ export const AI_MODELS: AiModel[] = [
     name: "GPT-4o Mini",
     provider: "openai",
     capabilities: OPENAI_CAPABILITIES,
+  },
+  {
+    id: "composer-2.5",
+    name: "Cursor",
+    provider: "cursor",
+    capabilities: CURSOR_CAPABILITIES,
   },
 ];
 

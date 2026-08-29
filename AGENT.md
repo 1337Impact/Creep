@@ -7,7 +7,7 @@ A minimal Chrome extension providing a persistent AI chat assistant injected int
 - **Framework**: React 19, TypeScript
 - **Styling**: Tailwind CSS, shadcn/ui (@radix-ui)
 - **Build Tool**: Vite with @crxjs/vite-plugin
-- **AI Integration**: @google/genai SDK (Gemini Lite/Flash/Pro)
+- **AI Integration**: @google/genai SDK (Gemini Lite/Flash/Pro), OpenAI SDK (GPT-4o), Cursor agent via local bridge server
 - **Manifest**: V3
 
 ## Setup
@@ -28,6 +28,7 @@ A minimal Chrome extension providing a persistent AI chat assistant injected int
 - **Context Awareness**: 
   - Toggle to attach current visible tab screenshot as context.
 - **API**: Gemini API key loaded from `.env` file via `VITE_GEMINI_API_KEY` environment variable.
+- **Cursor provider**: Selecting the "Cursor" model (`composer-2.5`) routes chats to a local FastAPI bridge (`server/`) that runs a Cursor agent and streams assistant text + tool calls back over SSE. The Cursor API key lives on the server (`CURSOR_API_KEY`), not in the extension. Server URL is `http://localhost:8000` (override with `VITE_CURSOR_SERVER_URL`). See `server/README.md`.
 
 ## Architecture
 - `content.tsx`: Injects Shadow DOM into pages for style isolation. Both `ChatInterface` and `SelectionPopup` render inside Shadow DOM to prevent CSS leakage to/from host pages. Imports CSS as inline string for Shadow DOM injection.

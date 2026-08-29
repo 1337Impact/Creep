@@ -1,5 +1,5 @@
 import type { Message } from "@/ai/types";
-import type { ChatTab, ConversationData } from "@/types/chat";
+import type { ChatTab, ConversationData, CursorChatMessage } from "@/types/chat";
 
 export function updateTabById(
   tabs: ChatTab[],
@@ -93,6 +93,28 @@ export function appendAgentHistory(
       { role: "assistant", content: [{ type: "text", text: summary }] },
     ],
   };
+}
+
+export function startCursorMessage(tab: ChatTab): ChatTab {
+  return {
+    ...tab,
+    messages: [
+      ...tab.messages,
+      { role: "cursor", status: "running", text: "", events: [] },
+    ],
+  };
+}
+
+export function updateCursorMessage(
+  tab: ChatTab,
+  index: number,
+  patch: Partial<Pick<CursorChatMessage, "text" | "status" | "events">>
+): ChatTab {
+  const messages = [...tab.messages];
+  const msg = messages[index];
+  if (!msg || msg.role !== "cursor") return tab;
+  messages[index] = { ...msg, ...patch };
+  return { ...tab, messages };
 }
 
 export function appendConversationToTab(
